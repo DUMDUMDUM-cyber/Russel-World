@@ -242,7 +242,7 @@ Object.assign(KINDS, {
 function monsterStats(kind, lv) {
   const k = KINDS[kind], d = lv - k.baseLv;
   // tougher monsters (v1.1): real monsters get more HP, hit harder and block a little more; practice targets stay the same
-  const T = k.target || k.passive ? { hp: 1, dmg: 1, def: 0, exp: 1 } : { hp: 1.55, dmg: 1.3, def: 2, exp: 1 };
+  const T = k.target || k.passive ? { hp: 1, dmg: 1, def: 0, exp: 1 } : { hp: 2.0, dmg: 1.5, def: 3, exp: 1 }; // v1.3: tougher again (was hp 1.55, dmg 1.3, def +2)
   return {
     hp: Math.round(k.hp * (1 + 0.35 * d) * T.hp),
     dmg: [k.dmg[0] * (1 + 0.25 * d) * T.dmg, k.dmg[1] * (1 + 0.25 * d) * T.dmg],
@@ -356,26 +356,27 @@ const PET_SHOP = ['pet_kibble', 'pet_treat', 'berry_bowl'];
 
 // ---------- pets (delivery 6) ----------
 // hp/atk: multipliers on the shared pet formula. skills[0] from baby, skills[1] once a teen
-// skill kinds: hit (one monster), area (around the pet), heal (the pet), guard (hero defense up), luck (more coins), weaken (monsters hit softer)
+// skill kinds: hit (one monster), area (around the pet), heal (the hero when low, and the pet), guard (hero defense up), luck (more coins), weaken (monsters hit softer)
 const PETS = {
   puffdrake: { name: 'Puffdrake', about: 'A little dragon who sneezes tiny flames.', element: 'fire', hp: 1, atk: 1.1, egg: 'warm',
     skills: [{ id: 'ember', name: 'Ember Sneeze', kind: 'hit', power: 1.7, element: 'fire', cd: 8, desc: 'A tiny fire sneeze at a monster.' },
       { id: 'flamepuff', name: 'Flame Puff', kind: 'area', power: 1.3, element: 'fire', radius: 2.4, cd: 14, desc: 'A puff of flame that hits monsters around it.' }] },
   cloudfox: { name: 'Cloudfox', about: 'A fox that floats on its own little cloud.', element: 'wind', hp: 0.95, atk: 1.05, egg: 'sky',
     skills: [{ id: 'gusttail', name: 'Gust Tail', kind: 'hit', power: 1.4, element: 'wind', kb: 2, cd: 8, desc: 'A swish of its tail that blows a monster back.' },
-      { id: 'cloudnap', name: 'Cloud Nap', kind: 'heal', heal: 0.4, cd: 22, desc: 'A quick nap on its cloud heals it.' }] },
+      { id: 'cloudnap', name: 'Cloud Nap', kind: 'heal', heal: 0.4, cd: 22, desc: 'A cozy cloud heals you when your HP is low, and the pet too.' }] },
   glimmerbun: { name: 'Glimmerbun', about: 'A bunny with a crystal horn that sparkles when it is happy.', element: null, hp: 1, atk: 1, egg: 'sky',
     skills: [{ id: 'sparkle', name: 'Sparkle Horn', kind: 'hit', power: 1.1, stun: 1.6, cd: 10, desc: 'A flash from its horn leaves a monster dizzy.' },
       { id: 'luckyglim', name: 'Lucky Glimmer', kind: 'luck', dur: 20, cd: 45, desc: 'Monsters drop more coins for 20 seconds.' }] },
   mossback: { name: 'Mossback', about: 'A stone turtle with a mossy, flowery shell.', element: 'earth', hp: 1.3, atk: 0.85, egg: 'leaf',
     skills: [{ id: 'shellguard', name: 'Shell Guard', kind: 'guard', def: 0.4, dur: 8, cd: 18, desc: 'Your defense goes up for 8 seconds.' },
-      { id: 'mossmend', name: 'Moss Mend', kind: 'heal', heal: 0.4, cd: 22, desc: 'The moss on its shell heals it.' }] },
+      { id: 'mossmend', name: 'Moss Mend', kind: 'heal', heal: 0.4, cd: 22, desc: 'Healing moss mends you when your HP is low, and the pet too.' }] },
   bloomquill: { name: 'Bloomquill', about: 'A hedgehog whose quills are flower petals.', element: null, hp: 1.05, atk: 1, egg: 'warm',
     skills: [{ id: 'petalspikes', name: 'Petal Spikes', kind: 'area', power: 1.1, radius: 2.4, cd: 10, desc: 'Petal quills hurt every monster around it.' },
       { id: 'sweetscent', name: 'Sweet Scent', kind: 'weaken', radius: 4, dur: 8, cd: 20, desc: 'Monsters around it hit softer for 8 seconds.' }] },
   lilytoad: { name: 'Lilytoad', about: 'A frog that carries a lily pad like an umbrella.', element: 'water', hp: 1.1, atk: 0.95, egg: 'leaf',
-    skills: [{ id: 'bubble', name: 'Bubble Splash', kind: 'hit', power: 1.3, element: 'water', slow: 4, cd: 8, desc: 'Water bubbles that make a monster slow.' },
-      { id: 'raindance', name: 'Rain Dance', kind: 'heal', heal: 0.4, cd: 22, desc: 'A little rain cloud heals it.' }] }
+    // the healer: heals from the very start
+    skills: [{ id: 'raindance', name: 'Rain Dance', kind: 'heal', heal: 0.4, cd: 16, desc: 'A soft rain heals you when your HP is low, and the pet too.' },
+      { id: 'bubble', name: 'Bubble Splash', kind: 'hit', power: 1.3, element: 'water', slow: 4, cd: 8, desc: 'Water bubbles that make a monster slow.' }] }
 };
 const PET_TRAITS = {
   greedy: { name: 'Greedy', desc: 'Gets hungry faster.' },
@@ -390,8 +391,8 @@ const PET_EGGS = {
 };
 const PET_TEEN_LV = 10, PET_HATCH = 300;
 const petStats = (pet) => {
-  const S = PETS[pet.sp], teen = pet.stage !== 'baby', lv = pet.lv;
-  return { maxHp: Math.round((60 + lv * 15) * S.hp * (teen ? 1.25 : 1)), atk: (6 + lv * 2.2) * S.atk * (teen ? 1.25 : 1) * (pet.trait === 'brave' ? 1.2 : 1) };
+  const S = PETS[pet.sp], teen = pet.stage !== 'baby', lv = pet.lv, grow = /^adult/.test(pet.stage || '') ? 1.5 : teen ? 1.25 : 1; // v1.4: adults (Pet Lv. 25) are stronger still
+  return { maxHp: Math.round((60 + lv * 15) * S.hp * grow), atk: (6 + lv * 2.2) * S.atk * grow * (pet.trait === 'brave' ? 1.2 : 1) };
 };
 
 // ---------- jobs (delivery 5): chosen at Lv. 10 from a master, with one weapon kept for good ----------
@@ -414,7 +415,7 @@ const JOBS = {
     skills: [
       { id: 'cleave', name: 'Cleave', kind: 'cone', mp: 8, mpLv: 1, cd: 5, power: 1.5, powerLv: 0.25, range: 3.2, desc: 'A wide slash that hits every monster in front of you.' },
       { id: 'rush', name: 'Rush', kind: 'dash', mp: 10, mpLv: 1, cd: 8, power: 1.6, powerLv: 0.2, range: 8, stun: 1.5, stunLv: 0.2, desc: 'Charge at a monster up to 8 m away and leave it dizzy.' },
-      { id: 'warcry', name: 'War Cry', kind: 'buff', mp: 12, mpLv: 1, cd: 30, dur: 15, atk: 0.2, atkLv: 0.04, def: 0.2, defLv: 0.04, desc: 'Attack and defense go up for 15 seconds.' },
+      { id: 'warcry', name: 'Shield Wall', kind: 'buff', mp: 12, mpLv: 1, cd: 22, dur: 10, def: 0.6, defLv: 0.1, guard: 0.3, guardLv: 0.04, taunt: 7, desc: 'Raise your shield for 10 s: defense goes way up, you take much less damage, and nearby monsters come at you instead of your pet.' },
       { id: 'earthslam', name: 'Earth Slam', kind: 'area', element: 'earth', mp: 16, mpLv: 2, cd: 12, power: 1.8, powerLv: 0.3, radius: 3.6, desc: 'Slam the ground and hurt every monster around you. Earth element.' }
     ],
     ult: { name: "Hero's Comet", desc: 'Leap high and crash down on a wide area.' }

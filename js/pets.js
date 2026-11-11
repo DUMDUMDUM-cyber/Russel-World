@@ -18,6 +18,7 @@ const EGG_DROP = 0.0012, EGG_DROP_GOLD = 0.15;
 const SCALE = 0.85;
 const COL = { puffdrake: 0xff8a3d, cloudfox: 0xb8f0d8, glimmerbun: 0xd8b8ff, mossback: 0xa8d878, bloomquill: 0xff9ac8, lilytoad: 0x7cc8ff };
 const PITCH = { puffdrake: 760, cloudfox: 1100, glimmerbun: 1300, mossback: 520, bloomquill: 980, lilytoad: 640 };
+for (const sp in PETS) { if (COL[sp] == null) COL[sp] = PETS[sp].col || 0xffffff; if (!PITCH[sp]) PITCH[sp] = PETS[sp].pitch || 900; } // v1.4: new pets bring their own colour and voice
 const MOOD_INFO = { happy: ['Happy', '💗'], ok: ['Okay', '🙂'], sad: ['Sad', '💧'], rest: ['Resting', '💤'], sleep: ['Sleeping', '💤'] };
 
 const pets = () => (P ? P.pets : []);
@@ -34,7 +35,10 @@ function wants(pet) { // the need that is lowest, if it is low
   return l[1] < LOW_AT ? l : null;
 }
 const isTeen = (pet) => pet.stage !== 'baby';
-const skillsOf = (pet) => PETS[pet.sp].skills.map((s, i) => Object.assign({ open: i === 0 || isTeen(pet) }, s));
+const isAdult = (pet) => /^adult/.test(pet.stage || '');
+const ADULT_LV = 25;
+const roleOf = (pet) => PETS[pet.sp].role || 'attacker';
+const skillsOf = (pet) => PETS[pet.sp].skills.map((s, i) => Object.assign({ open: i === 0 || (i === 1 && isTeen(pet)) || (i === 2 && isAdult(pet)) }, s));
 function newId() { return 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
 
 // ---------- the pet in the world ----------
@@ -54,7 +58,7 @@ function spawnPet() {
   if (pet.hp == null || pet.hp > st.maxHp) pet.hp = st.maxHp;
   const tag = G.lbl('<div class="tag pet"><span class="pmood"></span> <span class="pn"></span></div><div class="mhp pet"><i></i></div>');
   const zzz = G.lbl('<div class="sitz">z z</div>'); G.hideEl(zzz);
-  cur = { pet, m, tag, zzz, pos: m.root.position, face: 0, state: 'follow', target: null, atkCd: 1, skCd: [3, 8], lunge: 0, hop: 0, t: 0, faceT: 0, faceHold: null, react: null, restT: 0, stuck: 0, evo: null, last: { mood: '', name: '', hp: -1 } };
+  cur = { pet, m, tag, zzz, pos: m.root.position, face: 0, state: 'follow', target: null, atkCd: 1, skCd: [3, 8, 12], lunge: 0, hop: 0, t: 0, faceT: 0, faceHold: null, react: null, restT: 0, stuck: 0, evo: null, last: { mood: '', name: '', hp: -1 } };
   if (pet.hp <= 0) { cur.state = 'rest'; cur.restT = REST_TIME * 0.5; }
   placeBehind(true);
 }
@@ -154,8 +158,8 @@ function carryEgg(id) {
   if (!P) return;
   if (P.egg) return G.deny('You are already carrying an egg.');
   if (!G.bagTake(id, 1)) return;
-  takeEgg('wild');
-  UI.toast('You carry the <b>Wild Egg</b>. Adventure and it will hatch!');
+  const ek = (ITEMS[id] && ITEMS[id].egg) || 'wild'; takeEgg(ek);
+  UI.toast('You carry the <b>' + esc(PET_EGGS[ek].name) + '</b>. Adventure and it will hatch!');
   if (UI.isOpen('bagPanel')) UI.renderBag();
 }
 function startHatch() {
@@ -189,12 +193,14 @@ function petGainExp(pet, n) {
     UI.toast(esc(pet.name) + ' grew to <b>Pet Lv. ' + pet.lv + '</b>!');
     if (cur && cur.pet === pet) { G.floatText('PET LV UP', 'lvl', head(), 1.4); G.spawnRing(cur.pos, 0xffc8e8, 1.8, 0.6); sfx.point(); }
     if (pet.stage === 'baby' && pet.lv >= PET_TEEN_LV) evolve(pet);
+    else if (pet.lv >= ADULT_LV && !isAdult(pet) && pet.stage !== 'baby') evolve(pet, (pet.food + pet.fun + pet.clean) / 3 >= 60 ? 'adult_a' : 'adult_b');
   }
   G.dirty = true;
 }
-function evolve(pet) {
-  if (cur && cur.pet === pet) { cur.evo = { t: 0, swapped: false }; UI.toast(esc(pet.name) + ' is glowing...!', true); }
-  else { pet.stage = 'teen'; pet.hp = petStats(pet).maxHp; UI.toast(esc(pet.name) + ' became a teen!', true); }
+function evolve(pet, to) {
+  to = to || 'teen';
+  if (cur && cur.pet === pet) { cur.evo = { t: 0, swapped: false, to }; UI.toast(esc(pet.name) + ' is glowing...!', true); }
+  else { pet.stage = to; pet.hp = petStats(pet).maxHp; UI.toast(esc(pet.name) + (to === 'teen' ? ' became a teen!' : ' became an adult!'), true); }
 }
 function tickEvolve(dt) {
   const E = cur.evo; E.t += dt;
@@ -203,15 +209,16 @@ function tickEvolve(dt) {
   if (Math.random() < 0.5) G.spawnPuff(V3(cur.pos.x + rnd(-0.5, 0.5), cur.pos.y + rnd(0.2, 1), cur.pos.z + rnd(-0.5, 0.5)), 0xfff1a8, true);
   if (!E.swapped && E.t > 1.6) {
     E.swapped = true;
-    const pet = cur.pet, at = cur.pos.clone();
-    pet.stage = 'teen'; pet.hp = petStats(pet).maxHp;
+    const pet = cur.pet, at = cur.pos.clone(), to = E.to || 'teen';
+    pet.stage = to; pet.hp = petStats(pet).maxHp;
     spawnPet(); cur.pos.copy(at);
-    cur.evo = { t: 1.6, swapped: true };
+    cur.evo = { t: 1.6, swapped: true, to };
     G.spawnRing(at, 0xffffff, 3.4, 0.8); G.spawnRing(at, 0xfff1a8, 2.4, 0.6);
     for (let i = 0; i < 14; i++) G.spawnPuff(V3(at.x + rnd(-0.6, 0.6), at.y + rnd(0.2, 1.2), at.z + rnd(-0.6, 0.6)), [0xffffff, 0xfff1a8, COL[pet.sp]][i % 3], true);
     sfx.level(); setMood('happy', 3);
-    UI.toast(esc(pet.name) + ' evolved into a teen ' + PETS[pet.sp].name + '!', true);
-    UI.toast('New pet skill: <b>' + PETS[pet.sp].skills[1].name + '</b>');
+    const adult = to !== 'teen';
+    UI.toast(esc(pet.name) + ' evolved into ' + (adult ? (to === 'adult_a' ? 'a bright' : 'a wild') + ' adult ' : 'a teen ') + PETS[pet.sp].name + '!', true);
+    const ns = PETS[pet.sp].skills[adult ? 2 : 1]; if (ns) UI.toast('New pet skill: <b>' + ns.name + '</b>');
     G.save(); if (UI.isOpen('petPanel')) render();
   }
   if (E.t > 2.6) { cur.evo = null; cur.m.body.position.y = 0; }
@@ -220,44 +227,68 @@ function tickEvolve(dt) {
 // ---------- fighting ----------
 function strength(pet) {
   const st = petStats(pet), md = mood(pet);
-  return st.atk * (md === 'happy' ? 1.15 : md === 'sad' ? 0.6 : 1);
+  return st.atk * (md === 'happy' ? 1.15 : md === 'sad' ? 0.6 : 1) * (roleOf(pet) === 'ranger' ? 1.35 : 1);
 }
 function pickFoe() {
   const pl = G.player; if (pl.dead) return null;
   const ok = (m) => m && m.alive && m.active && !m.k.target && !m.k.magicOnly && !m.practice && !m.lit;
+  // v1.3: pets are rangers that always attack: the hero's target first, else the closest monster near the hero (angry or not)
   const t = pl.target;
-  if (ok(t) && Math.hypot(t.pos.x - pl.pos.x, t.pos.z - pl.pos.z) < 10 && (t.aggro || pl.lastFight > G.time - 3)) return t;
-  let best = null, bd = 8;
-  for (const m of G.monsters) { if (!ok(m) || !m.aggro) continue; const d = Math.hypot(m.pos.x - pl.pos.x, m.pos.z - pl.pos.z); if (d < bd) { bd = d; best = m; } }
+  if (ok(t) && Math.hypot(t.pos.x - pl.pos.x, t.pos.z - pl.pos.z) < PET_SEEK) return t;
+  if (pl.zone === 'town') return null;
+  // v1.4: the pet starts its own fights only while auto hunt is on; with it off, it helps against the hero's target and monsters that are angry at the hero
+  const free = !!G.autoOn;
+  if (cur && cur.target && ok(cur.target) && (free || cur.target.aggro) && Math.hypot(cur.target.pos.x - pl.pos.x, cur.target.pos.z - pl.pos.z) < PET_SEEK + 2) return cur.target;
+  let best = null, bd = PET_SEEK;
+  for (const m of G.monsters) { if (!ok(m) || m.k.passive || (m.k.disguise && !m.awake) || (!free && !m.aggro)) continue; const d = Math.hypot(m.pos.x - pl.pos.x, m.pos.z - pl.pos.z) - (m.aggro ? 3 : 0); if (d < bd) { bd = d; best = m; } }
   return best;
 }
-const reachOf = (m) => (m.k.radius || 0.6) * m.scale + 0.75;
+const PET_SEEK = 10, PET_RANGE0 = 6; // pets look for monsters within 10 m of the hero and shoot from up to 6 m away
+// v1.4: rangers shoot from further away and hit harder; tanks stand in front, take hits for you and soften what reaches you
+const rangeOf = () => (cur && roleOf(cur.pet) === 'ranger' ? 9.5 : PET_RANGE0);const reachOf = (m) => (m.k.radius || 0.6) * m.scale + 0.75;
+const shotReach = (m) => reachOf(m) + rangeOf();
+// a little glowing shot from the pet's mouth to the monster
+function shotFx(m, col) {
+  const f = Math.atan2(m.pos.x - cur.pos.x, m.pos.z - cur.pos.z);
+  const a = V3(cur.pos.x + Math.sin(f) * 0.4, cur.pos.y + 0.5, cur.pos.z + Math.cos(f) * 0.4), b = V3(m.pos.x, m.pos.y + 0.6 * m.scale, m.pos.z);
+  const n = Math.max(4, Math.round(a.distanceTo(b) * 1.5));
+  for (let k = 0; k <= n; k++) G.spawnPuff(V3(lerpN(a.x, b.x, k / n), lerpN(a.y, b.y, k / n), lerpN(a.z, b.z, k / n)), col, false);
+}
+// healer pets: heal the hero (and themselves) when HP runs low
+function healTeam(s, pet, st) {
+  const pl = G.player, D = G.D; let did = false;
+  if (pl && !pl.dead && D && pl.hp < D.maxHp * 0.6) { const h = Math.round(D.maxHp * s.heal * 0.5); pl.hp = Math.min(D.maxHp, pl.hp + h); G.floatText('+' + h, 'heal', V3(pl.pos.x, pl.pos.y + 2.2, pl.pos.z)); G.spawnRing(pl.pos, 0xa6f07f, 1.6, 0.6); for (let k = 0; k < 6; k++) G.spawnPuff(V3(pl.pos.x + rnd(-0.4, 0.4), pl.pos.y + rnd(0.3, 1.6), pl.pos.z + rnd(-0.4, 0.4)), 0xa6f07f, true); did = true; }
+  if (pet.hp < st.maxHp * 0.55) { const h = Math.round(st.maxHp * s.heal); pet.hp = Math.min(st.maxHp, pet.hp + h); G.floatText('+' + h, 'heal', head()); G.spawnRing(cur.pos, 0xa6f07f, 1.4, 0.5); did = true; }
+  if (did) for (let k = 0; k < 6; k++) G.spawnPuff(V3(cur.pos.x + rnd(-0.4, 0.4), cur.pos.y + 0.3, cur.pos.z + rnd(-0.4, 0.4)), pet.sp === 'mossback' ? 0xa8e07a : 0xbfe8ff, true);
+  return did;
+}
 function petHit(m, mult, o) {
   if (!m.alive) return;
   G.hitMonster(m, mult, (o && o.kb) || 0.15, false, false, Object.assign({ flat: strength(cur.pet), pet: true, fromX: cur.pos.x, fromZ: cur.pos.z, color: COL[cur.pet.sp] }, o || {}));
 }
 function useSkills(dt) {
   const pet = cur.pet, sk = skillsOf(pet), st = petStats(pet), pl = G.player;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < sk.length; i++) {
+    cur.skCd[i] = cur.skCd[i] || 0;
     cur.skCd[i] = Math.max(0, cur.skCd[i] - dt);
     const s = sk[i]; if (!s.open || cur.skCd[i] > 0) continue;
     const m = cur.target;
     let used = false;
-    if (s.kind === 'heal') { if (pet.hp < st.maxHp * 0.55) { const h = Math.round(st.maxHp * s.heal); pet.hp = Math.min(st.maxHp, pet.hp + h); G.floatText('+' + h, 'heal', head()); for (let k = 0; k < 6; k++) G.spawnPuff(V3(cur.pos.x + rnd(-0.4, 0.4), cur.pos.y + 0.3, cur.pos.z + rnd(-0.4, 0.4)), pet.sp === 'mossback' ? 0xa8e07a : 0xbfe8ff, true); G.spawnRing(cur.pos, 0xa6f07f, 1.4, 0.5); used = true; } }
+    if (s.kind === 'heal') used = healTeam(s, pet, st);
     else if (s.kind === 'guard') { if (G.time - pl.lastHurt < 2.5) { pl.buffs.shell = { t: s.dur, def: s.def, name: s.name, pet: true }; G.spawnRing(pl.pos, 0xa8d878, 1.8, 0.6); used = true; } }
     else if (s.kind === 'luck') { luckUntil = G.time + s.dur; G.spawnRing(cur.pos, 0xffe48a, 2.2, 0.6); for (let k = 0; k < 6; k++) G.spawnPuff(V3(cur.pos.x + rnd(-0.5, 0.5), cur.pos.y + 0.7, cur.pos.z + rnd(-0.5, 0.5)), 0xffe48a, true); used = true; }
     else if (s.kind === 'weaken') { let n = 0; for (const o of G.monsters) if (o.alive && o.aggro && Math.hypot(o.pos.x - cur.pos.x, o.pos.z - cur.pos.z) < s.radius) { o.weakT = s.dur; n++; G.spawnPuff(V3(o.pos.x, o.pos.y + 1, o.pos.z), 0xffb8d8, true); } if (n) { G.spawnRing(cur.pos, 0xffb8d8, s.radius, 0.7); used = true; } }
-    else if (m && m.alive && Math.hypot(m.pos.x - cur.pos.x, m.pos.z - cur.pos.z) < reachOf(m) + (s.kind === 'area' ? 1.2 : 2.2)) {
+    else if (m && m.alive && Math.hypot(m.pos.x - cur.pos.x, m.pos.z - cur.pos.z) < shotReach(m) + 1) {
+      cur.face = Math.atan2(m.pos.x - cur.pos.x, m.pos.z - cur.pos.z);
+      shotFx(m, COL[pet.sp]);
       if (s.kind === 'hit') {
-        cur.face = Math.atan2(m.pos.x - cur.pos.x, m.pos.z - cur.pos.z);
-        const mouth = V3(cur.pos.x + Math.sin(cur.face) * 0.4, cur.pos.y + 0.5, cur.pos.z + Math.cos(cur.face) * 0.4);
-        for (let k = 0; k < 5; k++) G.spawnPuff(V3(lerpN(mouth.x, m.pos.x, k / 5), mouth.y + 0.1, lerpN(mouth.z, m.pos.z, k / 5)), COL[pet.sp], false);
         petHit(m, s.power, { element: s.element, stun: s.stun, slow: s.slow, kb: s.kb, magic: !!s.element });
         used = true;
       } else if (s.kind === 'area') {
-        for (const o of G.monsters) if (o.alive && o.active && !o.k.target && Math.hypot(o.pos.x - cur.pos.x, o.pos.z - cur.pos.z) < s.radius + (o.k.radius || 0.6) * o.scale) petHit(o, s.power, { element: s.element, magic: !!s.element, kb: 0.5 });
-        G.spawnRing(cur.pos, COL[pet.sp], s.radius * 1.1, 0.5);
-        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; G.spawnPuff(V3(cur.pos.x + Math.cos(a) * 1.2, cur.pos.y + 0.4, cur.pos.z + Math.sin(a) * 1.2), COL[pet.sp], true); }
+        // the shot bursts on the monster and hits everything around it
+        for (const o of G.monsters) if (o.alive && o.active && !o.k.target && !o.k.passive && Math.hypot(o.pos.x - m.pos.x, o.pos.z - m.pos.z) < s.radius + (o.k.radius || 0.6) * o.scale) petHit(o, s.power, { element: s.element, magic: !!s.element, kb: 0.5 });
+        G.spawnRing(m.pos, COL[pet.sp], s.radius * 1.1, 0.5);
+        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; G.spawnPuff(V3(m.pos.x + Math.cos(a) * 1.2, m.pos.y + 0.4, m.pos.z + Math.sin(a) * 1.2), COL[pet.sp], true); }
         used = true;
       }
     }
@@ -268,8 +299,9 @@ const lerpN = (a, b, k) => a + (b - a) * k;
 function intercept(m) {
   if (!cur || cur.state !== 'fight' || cur.pet.hp <= 0) return false;
   if (Math.hypot(m.pos.x - cur.pos.x, m.pos.z - cur.pos.z) > reachOf(m) + 1.4) return false;
-  if (Math.random() > 0.35) return false;
-  const pet = cur.pet, dmg = Math.max(1, Math.round(rnd(m.st.dmg[0], m.st.dmg[1]) * (m.weakT > 0 ? 0.7 : 1) * (isTeen(pet) ? 0.8 : 1) - pet.lv * 0.3));
+  const tank = roleOf(cur.pet) === 'tank';
+  if (Math.random() > (tank ? 0.75 : 0.35)) return false;
+  const pet = cur.pet, dmg = Math.max(1, Math.round(rnd(m.st.dmg[0], m.st.dmg[1]) * (m.weakT > 0 ? 0.7 : 1) * (isTeen(pet) ? 0.8 : 1) * (tank ? 0.55 : 1) - pet.lv * 0.3));
   pet.hp -= dmg;
   G.floatText('-' + dmg, 'hurt', head()); G.spawnSpark(V3(cur.pos.x, cur.pos.y + 0.5, cur.pos.z), false);
   setMood('hurt', 0.5);
@@ -353,7 +385,14 @@ function updatePet(dt, time) {
   if (C.state !== 'fight' && C.state !== 'rest' && pet.hp < st.maxHp) pet.hp = Math.min(st.maxHp, pet.hp + st.maxHp * (pl.zone === 'town' ? 0.05 : 0.015) * dt);
   // movement
   let tx, tz, stopAt = 0.25, maxSp = 8;
-  if (C.state === 'fight' && C.target) { const f = C.target; const r = reachOf(f); const ang = Math.atan2(C.pos.x - f.pos.x, C.pos.z - f.pos.z); tx = f.pos.x + Math.sin(ang) * r * 0.9; tz = f.pos.z + Math.cos(ang) * r * 0.9; stopAt = 0.3; maxSp = 7.5; }
+  if (C.state === 'fight' && C.target) {
+    // a ranger: keeps a few steps away from the monster, on the hero's side, and only walks closer when out of range
+    const f = C.target, df = Math.hypot(f.pos.x - C.pos.x, f.pos.z - C.pos.z), want = cur && roleOf(cur.pet) === 'tank' ? reachOf(f) + 0.6 : reachOf(f) + rangeOf() * 0.7;
+    const tank = roleOf(pet) === 'tank';
+    if (tank ? df > reachOf(f) + 1.2 : (df > shotReach(f) - 0.3 || df < reachOf(f) + 1.2)) { const ang = Math.atan2(pl.pos.x - f.pos.x, pl.pos.z - f.pos.z) + 0.6; tx = f.pos.x + Math.sin(ang) * want; tz = f.pos.z + Math.cos(ang) * want; }
+    else { tx = C.pos.x; tz = C.pos.z; }
+    stopAt = 0.4; maxSp = 7.5;
+  }
   else if (C.state === 'rest' || C.state === 'sleep') { const s = behindSpot(0.7); tx = s.x; tz = s.z; stopAt = 3; maxSp = 2.2; }
   else { const s = behindSpot(0.7); tx = s.x; tz = s.z; }
   const dxh = pl.pos.x - C.pos.x, dzh = pl.pos.z - C.pos.z, dHero = Math.hypot(dxh, dzh);
@@ -376,13 +415,14 @@ function updatePet(dt, time) {
   W.collide(C.pos, 0.3);
   C.pos.y = W.height(C.pos.x, C.pos.z);
   // attacking
+  if (C.state === 'fight' && roleOf(pet) === 'tank' && pet.hp > 0) pl.buffs.petguard = { t: 0.6, guard: 0.15, name: pet.name + ' guards you', pet: true };
   if (C.state === 'fight' && C.target && !C.react) {
     C.atkCd -= dt;
     useSkills(dt);
     const f = C.target;
-    if (f && f.alive && C.atkCd <= 0 && Math.hypot(f.pos.x - C.pos.x, f.pos.z - C.pos.z) < reachOf(f) + 0.45) { C.atkCd = 1.5; C.lunge = 0.01; C.hitPending = f; }
+    if (f && f.alive && C.atkCd <= 0 && Math.hypot(f.pos.x - C.pos.x, f.pos.z - C.pos.z) < shotReach(f)) { C.atkCd = 1.5; C.lunge = 0.01; C.hitPending = f; }
   }
-  if (C.lunge > 0) { C.lunge += dt; if (C.hitPending && C.lunge > 0.16) { const f = C.hitPending; C.hitPending = null; if (f.alive) petHit(f, 1); } if (C.lunge > 0.35) C.lunge = 0; }
+  if (C.lunge > 0) { C.lunge += dt; if (C.hitPending && C.lunge > 0.16) { const f = C.hitPending; C.hitPending = null; if (f.alive) { shotFx(f, COL[pet.sp]); petHit(f, 1); } } if (C.lunge > 0.35) C.lunge = 0; }
   // the body: hops, wiggles, spins
   const b = m.body;
   let y = (m.hover || 0) ? m.hover + Math.sin(C.t * 2.2) * 0.06 : 0, rz = 0, sx = 1, sy = 1, spin = 0;
@@ -544,20 +584,20 @@ function render() {
     const face = md === 'happy' ? 'happy' : md === 'sad' ? 'sad' : md === 'rest' || md === 'sleep' ? 'sleep' : 'normal';
     h += '<div class="pet-top"><div class="pet-port"><img src="' + petShot(pet.sp, pet.stage, face) + '" alt=""></div><div class="pet-info">' +
       '<div class="pet-name">' + esc(pet.name) + '</div>' +
-      '<div class="pet-sub">' + (isTeen(pet) ? 'Teen ' : 'Baby ') + S.name + ' · Pet Lv. ' + pet.lv + ' · ' + PET_TRAITS[pet.trait].name + '</div>' +
+      '<div class="pet-sub">' + (isAdult(pet) ? 'Adult ' : isTeen(pet) ? 'Teen ' : 'Baby ') + S.name + ' · Pet Lv. ' + pet.lv + ' · ' + PET_TRAITS[pet.trait].name + '</div>' + '<div class="pet-sub"><b>' + (RW.PET_ROLES ? RW.PET_ROLES[roleOf(pet)][1] + ' ' + RW.PET_ROLES[roleOf(pet)][0] : '') + '</b> · ' + ({ attacker: 'hits monsters', ranger: 'big damage from far away', tank: 'takes hits for you, you take less damage', healer: 'heals you', lucky: 'more coins' })[roleOf(pet)] + '</div>' +
       '<span class="pet-mood ' + md + '" id="petMood">' + MOOD_INFO[md][1] + ' ' + MOOD_INFO[md][0] + '</span>' +
       bar('hpn', 'HP', Math.max(0, pet.hp), st.maxHp, Math.round(Math.max(0, pet.hp)) + '/' + st.maxHp) +
       bar('expn', 'EXP', pet.lv >= 50 ? 1 : pet.exp, pet.lv >= 50 ? 1 : expNeed(pet.lv), pet.lv >= 50 ? 'MAX' : Math.floor(pet.exp / expNeed(pet.lv) * 100) + '%') +
       '</div></div>';
     h += bar('food', 'Food', pet.food, 100) + bar('fun', 'Fun', pet.fun, 100) + bar('clean', 'Clean', pet.clean, 100);
-    h += '<p class="note">' + esc(S.about) + ' ' + esc(PET_TRAITS[pet.trait].desc) + (md === 'sad' ? ' <b>Too sad to fight right now!</b>' : md === 'happy' ? ' Happy pets hit harder.' : '') + (pet.stage === 'baby' ? ' Grows into a teen at Pet Lv. ' + PET_TEEN_LV + '.' : '') + '</p>';
+    h += '<p class="note">' + esc(S.about) + ' ' + esc(PET_TRAITS[pet.trait].desc) + (md === 'sad' ? ' <b>Too sad to fight right now!</b>' : md === 'happy' ? ' Happy pets hit harder.' : '') + (pet.stage === 'baby' ? ' Grows into a teen at Pet Lv. ' + PET_TEEN_LV + '.' : !isAdult(pet) ? ' Becomes an adult at Pet Lv. ' + ADULT_LV + ' (a well cared-for pet becomes a bright adult, a wild one a fiery adult).' : '') + '</p>';
     h += '<div class="pet-acts"><button class="btn small" data-pa="play">Play</button><button class="btn small" data-pa="bathe">Bathe</button></div>';
     const foods = P.bag.filter((e) => ITEMS[e[0]] && ITEMS[e[0]].food);
     h += '<h3 class="pet-h">Feed</h3>';
     h += foods.length ? '<div class="pet-foods">' + foods.map(([id, n]) => '<button data-feed="' + id + '" title="' + esc(ITEMS[id].name) + ': food +' + ITEMS[id].food + '"><img src="' + RW.iconURL(id) + '" alt="">' + esc(ITEMS[id].name) + ' ×' + n + '</button>').join('') + '</div>'
       : '<p class="note">No pet food in your bag. Pip sells snacks, and Leaflets drop jelly and sprouts pets like.</p>';
     h += '<h3 class="pet-h">Skills</h3>';
-    for (const s of skillsOf(pet)) h += '<div class="pet-skill' + (s.open ? '' : ' locked') + '"><b>' + esc(s.name) + '</b><span class="tagx">' + (s.open ? 'Uses it by itself' : 'Unlocks as a teen') + '</span><small>' + esc(s.desc) + '</small></div>';
+    for (const s of skillsOf(pet)) h += '<div class="pet-skill' + (s.open ? '' : ' locked') + '"><b>' + esc(s.name) + '</b><span class="tagx">' + (s.open ? 'Uses it by itself' : s === skillsOf(pet)[2] || PETS[pet.sp].skills.indexOf(PETS[pet.sp].skills.find((x) => x.id === s.id)) === 2 ? 'Unlocks as an adult (Pet Lv. ' + ADULT_LV + ')' : 'Unlocks as a teen') + '</span><small>' + esc(s.desc) + '</small></div>';
   } else if (!P.egg) {
     h += '<p class="note">You have no pet yet. Visit <b>Pip</b> at the Pet Den in Mossbrook for a mystery egg!</p>';
   }

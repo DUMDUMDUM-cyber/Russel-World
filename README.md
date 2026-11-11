@@ -1,10 +1,10 @@
 # Russel World
 
-Game petualangan 3D yang imut, dimainkan langsung di browser. Ada hero, job, pet, monster, gear, quest, dan Chapter 1 sampai melawan King Leaflet.
+Game petualangan 3D yang imut, dimainkan langsung di browser. Ada hero, job, pet, monster, gear, quest, Chapter 1 sampai King Leaflet, Chapter 2 (pulau Coralcove, Gua Pasang) dan Chapter 3 (tanah salju, Gua Es). Juga mancing, meja racik, pet dewasa, dan pet ranger/tank.
 
-A cute 3D adventure game that runs in the browser: heroes, jobs, pets, monsters, gear, quests, and Chapter 1 up to the King Leaflet boss.
+A cute 3D adventure game that runs in the browser: heroes, jobs, pets, monsters, gear, quests, Chapter 1 up to King Leaflet, Chapter 2 (Coralcove islands, Tide Cave) and Chapter 3 (snow lands, Ice Cave). Plus fishing, crafting, adult pets and ranger/tank pets.
 
-Versi / Version: v1.2
+Versi / Version: v1.4
 
 ## Cara main / How to play
 

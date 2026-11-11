@@ -481,7 +481,7 @@ function finishQuest(id) {
   if (q.next) setTimeout(() => { if (P === who) startQuest(q.next); }, 1500);
   if (q.light) setTimeout(() => { if (P === who) W.lightCrystal(true); }, 2200);
   if (q.after) q.after();
-  if (q.end) setTimeout(() => { if (P === who) { if (q.chapter) { UI.banner('Chapter 1 Complete!', 'The Garden Thieves · Chapter 2 comes in a later update'); sfx.levelUp ? sfx.levelUp() : sfx.questDone(); } else UI.banner('To be continued...', 'Chapter 1 continues in a later update'); ollySay(q.endLine || 'Let us train hard. And open every treasure chest we can find!', 'happy', true); } }, 2200);
+  if (q.end) setTimeout(() => { if (P === who) { if (q.chapter) { UI.banner(q.chapterTitle || 'Chapter 1 Complete!', q.chapterSub || 'The Garden Thieves · Chapter 2 begins!'); sfx.levelUp ? sfx.levelUp() : sfx.questDone(); } else UI.banner('To be continued...', 'Chapter 1 continues in a later update'); ollySay(q.endLine || 'Let us train hard. And open every treasure chest we can find!', 'happy', true); } }, 2200);
 }
 // stages that finish by themselves (no one to talk to) play their scene as soon as they are done
 const sceneQueue = [];
@@ -1136,5 +1136,5 @@ function pending(id) {
   for (const qid of SIDE) if (QUESTS[qid].giver === id && sideOpen(qid)) return true;
   return false;
 }
-RW.story = { say: ollySay, update, talk, pending, onLine, renderJournal, marks: () => targets(), get olly() { return olly; }, QUESTS, startQuest, advance, debugComplete(id) { const s = qs(id); if (!s) return; const st = stageOf(id); st.goal.forEach((o, i) => { s.prog[i] = o.need; }); changed(); checkAuto(); } };
+RW.story = { say: ollySay, update, talk, pending, onLine, renderJournal, marks: () => targets(), get olly() { return olly; }, QUESTS, startQuest, advance, MAIN, SIDE, ALL, SCENES, PLACES, NAMES, L, playScene, bye, campsOf, isActive: active, qs, stageOf, progress, changed, debugComplete(id) { const s = qs(id); if (!s) return; const st = stageOf(id); st.goal.forEach((o, i) => { s.prog[i] = o.need; }); changed(); checkAuto(); } };
 })();

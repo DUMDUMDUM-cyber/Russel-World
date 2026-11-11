@@ -1563,6 +1563,19 @@ function iconURL(id, size) {
     g.fillStyle = 'rgba(255,255,255,.6)'; ell(g, 22, 18, 3, 6, 0.4);
   } else if (it.icon === 'gear' && RW.gearIcon) {
     RW.gearIcon(g, it);
+  } else if (it.icon === 'fish') { // v1.4: fish from the fishing spots
+    g.fillStyle = col; g.beginPath(); g.moveTo(8, 32); g.quadraticCurveTo(28, 10, 46, 30); g.lineTo(58, 20); g.lineTo(56, 44); g.lineTo(46, 34); g.quadraticCurveTo(28, 54, 8, 32); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#fff'; ell(g, 19, 29, 4, 4); g.fillStyle = '#24170f'; ell(g, 19, 29, 2, 2);
+    g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2; g.beginPath(); g.moveTo(30, 22); g.quadraticCurveTo(34, 32, 30, 42); g.stroke();
+  } else if (it.icon === 'shard') { // v1.4: Light Shards
+    const gr = g.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, 'rgba(255,250,200,.95)'); gr.addColorStop(1, 'rgba(255,250,200,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = col; g.beginPath(); g.moveTo(32, 4); g.lineTo(42, 30); g.lineTo(32, 60); g.lineTo(22, 30); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.moveTo(32, 10); g.lineTo(36, 30); g.lineTo(32, 30); g.closePath(); g.fill();
+  } else if (it.icon === 'rod') {
+    g.strokeStyle = '#8a5a2e'; g.lineWidth = 5; g.beginPath(); g.moveTo(10, 56); g.lineTo(52, 8); g.stroke();
+    g.strokeStyle = '#3b2a1e'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(52, 8); g.quadraticCurveTo(58, 30, 50, 46); g.stroke();
+    g.fillStyle = '#e8604c'; g.beginPath(); g.arc(50, 48, 4, 0, 6.28); g.fill(); g.stroke();
+    g.fillStyle = '#c9c4ba'; g.beginPath(); g.arc(20, 46, 6, 0, 6.28); g.fill(); g.stroke();
   } else {
     g.fillStyle = '#e3b343'; for (const [x, y] of [[24, 42], [40, 42], [32, 30]]) { g.beginPath(); g.ellipse(x, y, 12, 9, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = '#f7d977'; ell(g, x - 2, y - 2, 6, 4); g.fillStyle = '#e3b343'; }
   }
@@ -1890,5 +1903,6 @@ function eggModel(kind) {
   return { root, body, mat, kind, crack(on) { mat.map = eggTex(kind, on); mat.needsUpdate = true; } };
 }
 
+RW.mkit = { mk, fin, wingPair, legs4, faceSet, solidBase, addExtras, glassMat, petFaces, petResult };
 Object.assign(RW, { GEAR_LOOKS, HEAD_Y0, HEAD_Y1, paintFaceG, faceTex, faceVariant, paintPortrait, lookOpts, ghostify, olly, FACES, chibi, ARLO, NPC_LOOKS, npcModel, statueFigure, MONSTER_BUILD, goldify, chestModel, waystone, watermill, burrowGate, rootSpike, warnRing, iconURL, dropModel, rockTex, stickTex, mossTex, furTexFor, PET_MOODS, PET_BUILD, petModel, setPetMood, eggModel, eggTex });
 })();

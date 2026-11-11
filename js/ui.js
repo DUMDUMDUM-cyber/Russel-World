@@ -43,7 +43,7 @@ function open(id) {
   syncCoins();
   const first = $(id).querySelector('button'); if (first && !RW.isTouch) first.focus({ preventScroll: true });
 }
-function close(id) { $(id).hidden = true; if (openId === id) openId = null; if (id === 'shopPanel') RW.shopNow = null; if (id === 'helpPanel' && G()) G().onHelpClosed(); }
+function close(id) { $(id).hidden = true; if (openId === id) openId = null; if (id === 'shopPanel') { RW.shopNow = null; RW.shopTitle = null; } if (id === 'helpPanel' && G()) G().onHelpClosed(); }
 function toggle(id) { if ($(id).hidden) open(id); else close(id); }
 function closeAll() { let any = false; for (const w of WINDOWS) if (!$(w).hidden) { close(w); any = true; } if (!$('dialog').hidden) { hideDialog(); any = true; } return any; }
 function isOpen(id) { return !$(id).hidden; }
@@ -122,7 +122,7 @@ function renderShop() {
   const g = G(), p = g.p, list = $('shopList'), coin = '<img src="' + RW.iconURL('coin', 32) + '" alt="">';
   $('tabBuy').setAttribute('aria-selected', String(shopTab === 'buy')); $('tabSell').setAttribute('aria-selected', String(shopTab === 'sell'));
   let html = '';
-  $('shopTitle').textContent = RW.shopNow ? "Pip's Pet Snacks" : "Mira's Goods";
+  $('shopTitle').textContent = RW.shopNow ? (RW.shopTitle || "Pip's Pet Snacks") : "Mira's Goods";
   const what = (it) => it.heal ? 'Restores ' + it.heal + ' HP' : it.mana ? 'Restores ' + it.mana + ' MP' : it.cure ? 'Cures ' + ({ poison: 'poison', stun: 'dizziness', freeze: 'freezing' }[it.cure] || it.cure) : it.food ? 'Pet food +' + it.food + (it.fun ? ', fun +' + it.fun : '') : '';
   if (shopTab === 'buy') {
     for (const id of RW.shopNow || RW.SHOP) {

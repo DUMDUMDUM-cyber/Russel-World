@@ -391,7 +391,7 @@ function hurtPlayer(dmg, big) {
   if (player.dead) return;
   const head = V3(player.pos.x, player.pos.y + 1.75, player.pos.z);
   if (!big && Math.random() < D.dodge) { floatText('Dodge', 'miss', head); return; }
-  dmg = Math.max(1, Math.round(dmg - D.def * (1 + buffSum('def')) * 0.5));
+  dmg = Math.max(1, Math.round(dmg * (1 - Math.min(0.75, buffSum('guard'))) - D.def * (1 + buffSum('def')) * 0.5)); // v1.4: guard = less damage taken (Shield Wall, tank pets)
   player.hp -= dmg; player.lastHurt = time; player.lastFight = time; player.ult = Math.min(100, player.ult + 4);
   if (player.sitting) standUp();
   floatText(big ? '<small>CHARGE!</small>-' + dmg : '-' + dmg, big ? 'hurt bighurt' : 'hurt', head); sfx.hurt();
@@ -478,12 +478,13 @@ function usePotion(id) {
   if (bagCount(id) <= 0) return deny('No ' + it.name + ' left. Mira sells more in Mossbrook.');
   if (it.heal && player.hp >= D.maxHp - 0.5) return deny('HP is already full.');
   if (it.mana && player.mp >= D.maxMp - 0.5) return deny('MP is already full.');
-  if (it.cure) { const on = it.cure === 'poison' ? !!player.poison : player[it.cure] > 0; if (!on) return deny('You are not ' + CURED[it.cure] + '.'); }
+  if (it.cure && !it.warm) { const on = it.cure === 'poison' ? !!player.poison : player[it.cure] > 0; if (!on) return deny('You are not ' + CURED[it.cure] + '.'); }
   bagTake(id, 1);
   const head = V3(player.pos.x, player.pos.y + 1.8, player.pos.z);
   if (it.heal) { const h = Math.round(Math.min(it.heal, D.maxHp - player.hp)); player.hp += h; floatText('+' + h, 'heal', head); spawnRing(player.pos, 0xff9a8f, 1.4, 0.5); }
   else if (it.mana) { const h = Math.round(Math.min(it.mana, D.maxMp - player.mp)); player.mp += h; floatText('+' + h + ' MP', 'heal', head); spawnRing(player.pos, 0x9cc8ff, 1.4, 0.5); }
-  else { if (it.cure === 'poison') player.poison = null; else player[it.cure] = 0; floatText('<small>CURED</small>', 'heal', head); spawnRing(player.pos, 0xbff0a0, 1.6, 0.5); }
+  else { if (it.cure === 'poison') player.poison = null; else player[it.cure] = 0; floatText(it.warm ? '<small>WARM</small>' : '<small>CURED</small>', 'heal', head); spawnRing(player.pos, it.warm ? 0xffb46a : 0xbff0a0, 1.6, 0.5); }
+  if (it.warm) player.buffs.warm = { t: it.warm, name: 'Warm' }; // v1.4: Warm Tea keeps the cold away for a while
   sfx.potion();
   if (UI.isOpen('bagPanel')) UI.renderBag();
   return true;
@@ -689,8 +690,9 @@ function runSkill(a) {
     if (t) { hitMonster(t, pw, 1.0, true, false, { stun: s.stun + s.stunLv * (lv - 1) }); spawnRing(t.pos, 0xffffff, 1.6, 0.4); for (let i = 0; i < 5; i++) spawnPuff(V3(t.pos.x + rnd(-0.5, 0.5), t.pos.y + 0.2, t.pos.z + rnd(-0.5, 0.5))); }
   } else if (s.kind === 'buff') {
     const b = { t: s.dur };
-    for (const k of ['atk', 'def', 'crit', 'speed']) if (s[k]) b[k] = s[k] + (s[k + 'Lv'] || 0) * (lv - 1);
+    for (const k of ['atk', 'def', 'crit', 'speed', 'guard']) if (s[k]) b[k] = s[k] + (s[k + 'Lv'] || 0) * (lv - 1);
     if (s.range) b.range = s.range;
+    if (s.taunt) for (const m of monsters) if (m.alive && !m.k.passive && Math.hypot(m.pos.x - player.pos.x, m.pos.z - player.pos.z) < s.taunt) { m.aggro = true; m.show = 4; }
     player.buffs[s.id] = b;
     const col = { warcry: 0xff8a5a, hawkeye: 0x9ff07a, stoneskin: 0xc8a06a, overdrive: 0x7ce0ff }[s.id] || 0xffffff;
     aura(col, s.dur, s.id); pillarT = 0.3; spawnRing(player.pos, col, 3, 0.6);
@@ -794,6 +796,7 @@ function talkTo(n) {
   player.npcTarget = null; talkNpc = n;
   player.face = Math.atan2(n.x - player.pos.x, n.z - player.pos.z);
   // quests come first: the story decides if this person has something to say about one
+  if (RW.talkHooks) for (const f of RW.talkHooks) if (f(n)) return; // v1.4: fishing, crafting, the boat, the merchant...
   if (RW.gear && RW.gear.talk(n)) return;
   if (RW.jobs && RW.jobs.talk(n)) return;
   if (RW.pets && RW.pets.talk(n)) return;
@@ -978,7 +981,7 @@ function checkGates() {
     if (G.map !== W.active) continue;
     const d = Math.hypot(G.x - player.pos.x, G.z - player.pos.z);
     if (gateArmed === G.id || gateArmed === G.id + '#') { if (d > 4.5) gateArmed = null; else if (gateArmed === G.id || (G.locked && G.locked())) continue; }
-    if (G.locked && G.locked()) { if (d < 4.2) { gateArmed = G.id + '#'; UI.toast('Big rocks and roots block the way in.'); } continue; }
+    if (G.locked && G.locked()) { if (d < 4.2) { gateArmed = G.id + '#'; UI.toast(G.lockMsg ? G.lockMsg() : 'Big rocks and roots block the way in.'); } continue; }
     if (d < 2.4) { gateArmed = G.id; travel(G.to, G.tx, G.tz, G.face, 'gate'); return; }
   }
 }
@@ -1024,7 +1027,7 @@ function moveToward(tx, tz, dt, stopAt) {
 }
 // auto hunting: when the hero is idle, attack the nearest monster within a small radius; pause when HP gets low
 let autoOn = false, autoWarned = false;
-const AUTO_R = 8;
+const AUTO_R = 15; // v1.3: user asked for a 15 m auto hunt range
 function setAuto(on) { autoOn = on; autoWarned = false; document.getElementById('autoBtn').setAttribute('aria-pressed', String(on)); UI.toast(on ? 'Auto hunt: ON (monsters within ' + AUTO_R + ' m)' : 'Auto hunt: OFF'); sfx.click(); }
 function autoHunt() {
   if (!autoOn || player.dead || player.target || player.action || player.dest || player.pickTarget || player.npcTarget || player.spotTarget || player.sitting || UI.talking || traveling) return;
@@ -1487,7 +1490,7 @@ function drawAreaMap() {
   // gates: a sign with where they lead
   for (const G of W.GATES) if (G.map === W.active && !(G.locked && G.locked())) {
     const x = X(G.x), y = Z(G.z); g.fillStyle = '#f2c14e'; g.strokeStyle = '#3b2a1e'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill(); g.stroke();
-    label('→ ' + (AREA_NAMES[G.to] || G.to), x, y - 15, 13, '#6b3a10');
+    label('→ ' + (AREA_NAMES[G.to] || (AREAS[G.to] && AREAS[G.to].name) || G.to), x, y - 15, 13, '#6b3a10');
   }
   // villagers
   for (const n of npcs) { if (!here(n)) continue; const x = X(n.x), y = Z(n.z); g.fillStyle = '#3aa83a'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); g.stroke(); label(n.name, x, y - 13, 12, '#2a5a20'); }
@@ -1502,7 +1505,7 @@ function drawAreaMap() {
   { const x = X(player.pos.x), y = Z(player.pos.z); g.save(); g.translate(x, y); g.fillStyle = 'rgba(232,96,76,.25)'; g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2); g.fill(); g.rotate(Math.PI - player.face);
     g.fillStyle = '#e8604c'; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -11); g.lineTo(8, 8); g.lineTo(0, 4); g.lineTo(-8, 8); g.closePath(); g.fill(); g.stroke(); g.restore(); }
   if (town) label('Mossbrook', X(0), Z(0) + W.TOWN.fence * k + 14, 15);
-  $('areaMapName').textContent = W.inTown(player.pos.x, player.pos.z) ? 'Mossbrook' : (AREA_NAMES[W.active] || '');
+  $('areaMapName').textContent = W.inTown(player.pos.x, player.pos.z) ? 'Mossbrook' : (AREA_NAMES[W.active] || (AREAS[W.active] && AREAS[W.active].name) || '');
 }
 function updateAreaMap(dt) { if (!amOpen) return; if (mode !== 'play') { toggleAreaMap(false); return; } amT -= dt; if (amT <= 0) { amT = 0.15; drawAreaMap(); } }
 function resize() { VW = window.innerWidth; VH = window.innerHeight; renderer.setSize(VW, VH); camera.aspect = VW / VH; camera.updateProjectionMatrix(); }
@@ -1593,6 +1596,7 @@ function enterWorld(i) {
   setHero(P.look); holder.visible = true;
   // the hero comes back in the area they left, or at the entrance of it if the old spot is no good
   const ARRIVE = { meadow: W.SPAWN, hills: { x: 0, z: -684, face: Math.PI }, wood: { x: -410, z: -470, face: -Math.PI / 2 }, river: { x: 762, z: -300, face: Math.PI / 2 }, thorn: { x: 762, z: -900, face: Math.PI / 2 }, burrow: { x: 1500, z: -151, face: Math.PI } };
+  for (const L of W.LANDS) if (L.arrive) ARRIVE[L.id] = L.arrive;
   const mapId = AREAS[P.map] ? P.map : 'meadow';
   mode = 'play'; switchMap(mapId);
   const okPos = P.pos && W.mapAt(P.pos.x, P.pos.z) === mapId && W.walkable(P.pos.x, P.pos.z);

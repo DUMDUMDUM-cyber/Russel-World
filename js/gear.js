@@ -54,6 +54,7 @@ const SETS = {
   river: { name: 'Riverside', two: { hp: 70, mp: 35 }, three: { atk: 7, def: 7, luck: 0.06 } },
   bramble: { name: 'Thornbush', two: { atk: 6, crit: 0.02 }, three: { atk: 8, def: 8, crit: 0.04 } }
 };
+Object.assign(SETS, RW.EXTRA_SETS || {}); // v1.4: beach, island and snow sets (lands.js)
 const GEAR = {};
 const r1 = (v) => Math.round(v * 10) / 10, r3 = (v) => Math.round(v * 1000) / 1000;
 const armor = (slot, lv, k) => slot === 'head' ? { def: r1((1 + lv * 0.5) * k), hp: Math.round((5 + lv * 3) * k) } : slot === 'body' ? { def: r1((2 + lv * 1.0) * k), hp: Math.round((10 + lv * 6) * k) } : { def: r1((1 + lv * 0.4) * k), dodge: r3((0.005 + lv * 0.001) * k) };
@@ -75,7 +76,7 @@ const SET_PIECES = [
   ['bush', 10, 'bushling', [['bushcap', 'Bush Hat'], ['bushvest', 'Leafy Coat'], ['bushboots', 'Bramble Boots']]],
   ['river', 8, null, [['strawhat', 'Straw Hat'], ['rivervest', 'River Vest'], ['riverboots', 'River Boots']]],
   ['bramble', 10, null, [['bramblecrown', 'Bramble Crown'], ['bramblecoat', 'Bramble Coat'], ['brambleboots', 'Thicket Boots']]]
-];
+].concat(RW.EXTRA_SET_PIECES || []);
 const FORGE_MATS = {
   flowercrown: [['leaf_jelly', 8], ['sweet_sprout', 2]], suntunic: [['leaf_jelly', 10], ['mush_cap', 5]], sunshoes: [['spore_puff', 5], ['mush_cap', 3]],
   feathercap: [['dandelion_fluff', 6], ['breeze_jelly', 6]], windcape: [['breeze_jelly', 10], ['boar_bristle', 6]], windboots: [['boar_bristle', 8], ['dandelion_fluff', 3]],
@@ -83,6 +84,7 @@ const FORGE_MATS = {
   strawhat: [['pond_slime', 8], ['acorn', 5]], rivervest: [['pond_slime', 10], ['pebble_shell', 6]], riverboots: [['pebble_shell', 8], ['acorn', 4]],
   bramblecrown: [['bramble_twig', 8], ['honey_drop', 5]], bramblecoat: [['bramble_twig', 10], ['honey_drop', 6], ['root_knot', 4]], brambleboots: [['bramble_twig', 8], ['root_knot', 5]]
 };
+Object.assign(FORGE_MATS, RW.EXTRA_FORGE || {});
 const DROP_SET = {};
 for (const [set, lv, mon, pieces] of SET_PIECES) {
   pieces.forEach(([look, name], i) => {
@@ -353,7 +355,7 @@ function renderSmith() {
         (max ? '<p class="note">This is as strong as it gets. +10!</p>' :
           '<div class="enh-stats">' + Object.keys(GEAR[sel.id].base).map((k) => '<span>' + STAT[k].name + ' ' + fmt(k, now[k]) + ' → <b>' + fmt(k, next[k]) + '</b></span>').join('') + '</div>' +
           '<div class="mats">' + matsHTML(mats) + '<span class="price">' + coin() + coins + '</span></div>' +
-          '<div class="enh-chance">Success: <b>' + Math.round(ENH_CHANCE[to] * 100) + '%</b>' + (sel.plus >= 6 ? ' · if it fails, it drops to +' + (sel.plus - 1) : ' · if it fails, it stays +' + sel.plus) + '. Coins and materials are used either way.</div>' +
+          '<div class="enh-chance">Success: <b>' + Math.round(ENH_CHANCE[to] * 100) + '%</b>' + (sel.plus >= 6 ? (G.bagCount('light_charm') > 0 ? ' · if it fails, your Light Charm (' + G.bagCount('light_charm') + ') keeps it +' + sel.plus : ' · if it fails, it drops to +' + (sel.plus - 1) + ' (a Light Charm stops that)') : ' · if it fails, it stays +' + sel.plus) + '. Coins and materials are used either way.</div>' +
           '<button class="btn" data-enh="' + sel.u + '"' + (ok ? '' : ' disabled') + '>Make it +' + to + '!</button>') + '</div></div>';
     }
     h += '<div class="gpick">' + list.map(([g, on]) => '<button class="gslot r' + g.r + '" data-sel="' + g.u + '" aria-pressed="' + (g.u === smithSel) + '" aria-label="' + esc(instName(g)) + '"><img src="' + RW.iconURL('g_' + g.id) + '" alt="">' + (g.plus ? '<span class="pl">+' + g.plus + '</span>' : '') + (on ? '<span class="on">✓</span>' : '') + '</button>').join('') + '</div>';
@@ -398,6 +400,7 @@ function enhance(u) {
   setTimeout(() => {
     enhBusy = false;
     if (Math.random() < ENH_CHANCE[to]) { inst.plus = to; sfx.level(); UI.toast('<b>Success!</b> ' + esc(instName(inst)), true); RW.emit('enhance', to); }
+    else if (inst.plus >= 6 && G.bagCount('light_charm') > 0) { G.bagTake('light_charm', 1); sfx.deny(); UI.toast('<b>It slipped!</b> But your <b>Light Charm</b> glowed and kept it at +' + inst.plus + '.', true); }
     else if (inst.plus >= 6) { inst.plus -= 1; sfx.deny(); UI.toast('<b>It slipped!</b> ' + esc(GEAR[inst.id].name) + ' dropped to +' + inst.plus + '.', true); }
     else { sfx.deny(); UI.toast('<b>It slipped!</b> ' + esc(GEAR[inst.id].name) + ' stays +' + inst.plus + '.', true); }
     G.save(); changed(P); if (UI.isOpen('smithPanel')) renderSmith();
@@ -461,6 +464,8 @@ dCanvas.addEventListener('pointerup', endDrag); dCanvas.addEventListener('pointe
 let gearSel = null; // the item picked in the gear bag (u), or a worn slot name
 function slotHTML(s) {
   const it = G.p.gear[s];
+  // v1.4: with no forged weapon, the slot shows the hero's own weapon (the Wooden Stick for a novice)
+  if (!it && s === 'weapon') { const wb = WEAPONS[G.weaponNow()] || WEAPONS.stick; return '<button class="eslot" data-slot="' + s + '"><img class="eicon" src="' + RW.iconURL('bolt_hammer') + '" alt=""><span class="einfo"><b>' + esc(wb.name) + '</b><small>Basic weapon · Atk ' + (wb.atk || wb.matk || 0) + (G.p.job === 'novice' || !G.p.job ? ' · pick a job at Lv. 10 for better weapons' : '') + '</small></span></button>'; }
   if (!it) return '<button class="eslot empty" data-slot="' + s + '"><span class="eicon">' + SLOT_NAME[s] + '</span><span class="einfo"><b>' + SLOT_NAME[s] + '</b><small>Empty</small></span></button>';
   const g = GEAR[it.id];
   return '<button class="eslot r' + it.r + (gearSel === s ? ' sel' : '') + '" data-slot="' + s + '" aria-pressed="' + (gearSel === s) + '"><img class="eicon" src="' + RW.iconURL('g_' + it.id) + '" alt=""><span class="einfo"><b>' + esc(instName(it)) + '</b><small style="color:' + RAR[it.r].ink + '">' + RAR[it.r].name + (g.set ? ' · Set ' + esc(SETS[g.set].name) : '') + '</small>' + durBar(it) + '</span></button>';

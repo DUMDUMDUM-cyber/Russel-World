@@ -7,7 +7,7 @@ const { THREE, renderer, ITEMS, KINDS, AREAS, BOOK_STARS, CHESTS, ELEMENTS, RARI
 const W = RW.world, G = RW.G, UI = RW.UI, sfx = RW.audio.sfx, esc = G.esc;
 const $ = (id) => document.getElementById(id);
 let P = null;
-const AREA_IDS = ['meadow', 'hills', 'wood', 'river', 'thorn', 'burrow', 'cave'];
+const AREA_IDS = ['meadow', 'hills', 'wood', 'river', 'thorn', 'burrow', 'cave'].concat(Object.keys(AREAS).filter((a) => !['meadow', 'hills', 'wood', 'river', 'thorn', 'burrow', 'cave'].includes(a) && AREAS[a].kinds.length)); // v1.4: Chapter 2 and 3 areas come from lands.js
 
 // ---------- treasure chests: hidden in every area, opened once per hero ----------
 const chests = [];
@@ -217,6 +217,8 @@ function renderMap() {
   // mountains along the top edge
   for (let i = 0; i < 9; i++) { const x = 60 + i * 110 + rr() * 30, y = 46 + rr() * 10, s = 22 + rr() * 14; g.fillStyle = '#b7a891'; g.strokeStyle = '#6b4a30'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - s, y + s * 0.7); g.lineTo(x, y - s * 0.5); g.lineTo(x + s, y + s * 0.7); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#fbf6ea'; g.beginPath(); g.moveTo(x - s * 0.32, y - s * 0.05); g.lineTo(x, y - s * 0.5); g.lineTo(x + s * 0.32, y - s * 0.05); g.closePath(); g.fill(); }
   const seen = (a) => a === 'meadow' || !!P.visited[a];
+  // v1.4: in the lands of Chapter 2 and 3, the map shows the sea and the snow instead
+  if (RW.lands && RW.lands.isLand(W.active)) { RW.lands.drawPaper(g, Wd, Hd, P, { blob, cloud, label, dotted, star, tree, pine, seen, chestCount }); return; }
   // roads between places
   dotted(g, [[500, 505], [500, 470]]);
   dotted(g, [[500, 300], [500, 262]]);

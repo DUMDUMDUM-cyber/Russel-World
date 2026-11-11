@@ -177,7 +177,14 @@ function walkCave(x, z) {
   return true;
 }
 // --- one set of functions for the whole world: each point belongs to the map whose space it is in
-function mapAt(x, z) { return x > 1300 ? (z < -560 ? 'cave' : 'burrow') : x > 600 ? (z < -620 ? 'thorn' : 'river') : x < -325 ? 'wood' : z < -535 ? 'hills' : 'meadow'; }
+// v1.4: Chapter 2 and 3 lands live far to the west (x < -1200); lands.js adds them with RW.world.addLand
+const LANDS = [];
+function landAt(x, z) {
+  let best = null, bd = 1e12;
+  for (const L of LANDS) { if (Math.abs(x - L.cx) <= L.half && Math.abs(z - L.cz) <= L.half) return L.id; const d = (x - L.cx) ** 2 + (z - L.cz) ** 2; if (d < bd) { bd = d; best = L.id; } }
+  return best || 'wood';
+}
+function mapAt(x, z) { return x < -1200 ? landAt(x, z) : x > 1300 ? (z < -560 ? 'cave' : 'burrow') : x > 600 ? (z < -620 ? 'thorn' : 'river') : x < -325 ? 'wood' : z < -535 ? 'hills' : 'meadow'; }
 const HEIGHT = { meadow: heightMeadow, hills: heightHills, wood: heightWood, river: heightRiver, thorn: heightThorn, burrow: heightBurrow, cave: heightCave };
 const EDGE = { meadow: edgeMeadow, hills: edgeHills, wood: edgeWood, river: edgeRiver, thorn: edgeThorn, burrow: edgeBurrow, cave: edgeCave };
 const WALK = { meadow: walkMeadow, hills: walkHills, wood: walkWood, river: walkRiver, thorn: walkThorn, burrow: walkBurrow, cave: walkCave };
@@ -1444,7 +1451,7 @@ function buildRiver() {
     part(geoCyl(0.22, 0.18, 0.36, 12), lam(0x8a9aa6), 0.012, g, -4.1, y + 0.24, -0.5);
     const rod = part(geoCyl(0.022, 0.035, 3.4, 6), lam(0x9a7448), 0.008, g, -6.1, y + 1.2, 0.75); rod.rotation.z = 0.95;
     freeze(g); root.add(g); addCollider(DOCK.x + 0.4, DOCK.z, 1.0);
-    signPost(DOCK.x + 2.6, DOCK.z - 2.4, Math.PI / 2, 'Fishing Spot\nOpens soon');
+    signPost(DOCK.x + 2.6, DOCK.z - 2.4, Math.PI / 2, 'Fishing Dock\nBoat to Coralcove');
   }
   // reeds and cattails along both banks, lily pads in the slow water, pebbles on the shore
   {
@@ -1767,9 +1774,9 @@ function setMap(id) {
   active = id;
   for (const k in MAPS) MAPS[k].group.visible = k === id;
   const c = CENTERS[id]; if (id === 'meadow') skyRing.position.set(0, 0, 0); else skyRing.position.set(c[0], 0, c[1] + 170);
-  skyRing.visible = id !== 'wood' && id !== 'burrow' && id !== 'cave'; // deep in the forest the far mountains are hidden behind the trees
-  sky.visible = id !== 'burrow' && id !== 'cave'; // underground: no sky at all
   const lk = LOOK[id];
+  skyRing.visible = !lk.under && !lk.noRing && id !== 'wood' && id !== 'burrow' && id !== 'cave'; // deep in the forest the far mountains are hidden behind the trees
+  sky.visible = !lk.under && id !== 'burrow' && id !== 'cave'; // underground: no sky at all
   FOG.setHex(lk.fog); scene.fog.color.setHex(lk.fog); scene.fog.near = lk.near; scene.fog.far = lk.far; scene.background.setHex(lk.fog); RW.sun.intensity = lk.sun;
   for (const wm of waterMats) { wm.uniforms.fogNear.value = lk.near; wm.uniforms.fogFar.value = lk.far; }
   return MAPS[id];
@@ -1817,7 +1824,29 @@ function update(dt, time) {
     for (const t of caveFx.torches) if (t.fire.visible) { const f = 1 + Math.sin(time * 13 + t.x) * 0.08 + Math.sin(time * 23 + t.z) * 0.05; t.fire.scale.set(f, f * (0.4 + 0.6 * Math.min(1, t.lit)), f); }
     if (caveFx.sunbeam) caveFx.sunbeam.material.opacity = 0.13 + Math.sin(time * 0.9) * 0.04;
   }
+  for (const f of landTicks) f(dt, time, active);
 }
+// ---------- v1.4: the hook lands.js uses to add whole new maps, and the builder kit it needs ----------
+const landTicks = [];
+function addLand(D) {
+  LANDS.push(D);
+  HEIGHT[D.id] = D.height; EDGE[D.id] = D.edge; WALK[D.id] = D.walk;
+  BUILD[D.id] = D.build; CENTERS[D.id] = [D.cx, D.cz]; LOOK[D.id] = D.look;
+  for (const g of D.gates || []) GATES.push(Object.assign({ map: D.id }, g));
+  if (D.way) { const w = Object.assign({ map: D.id }, D.way); WAYSTONES.push(w); addCollider(w.x, w.z, 0.95); }
+  for (const s of D.npcs || []) NPC_SPOTS.push(Object.assign({ map: D.id }, s));
+  if (D.tick) landTicks.push(D.tick);
+}
+const kit = {
+  beginMap(id, seed, leaf) { beginMap(id, seed); buildId = id; leafBase = leaf || 1; },
+  get root() { return root; }, set root(r) { root = r; },
+  layer: (name, item) => L[name].push(item),
+  makeGround, roadRibbon, distToRoad, addBroadleaf, addPine, addBush, rocksAround, addFlowers, addTufts, addRays, addPond, gateArch, signPost, signBoard, bakeLayers, paintMini, driftCloud, drift, addCollider, groundBlob, box, gateClear, chestClear,
+  house(x, z, roofHex, opts) { const g = addHouse(x, z, roofHex, Object.assign({ face: 0 }, opts)); root.add(g); return g; },
+  tent(x, z, face, tex) { const g = addTent(x, z, face, tex); root.add(g); return g; },
+  superEdge, rimRise, pondCarve, smoothstep, smooth01, vnoise3, lerp, clamp, R, ROCKS, M_WOOD, M_STONE, M_WALL, rockTex, barkTex, woodTex, grassTex, caveFloorTex, dirtTex, tentTex, awningTex, cobbleTex, waterMats, treeDots: () => treeDots, buildingDots: () => buildingDots,
+  height: (x, z) => height(x, z), edgeDist: (x, z) => edgeDist(x, z), MAPS
+};
 // keep the floating seeds or fireflies in a box around the camera; seeds ride the wind, fireflies wander and blink
 function drift(D, dt, time, wind, blink) {
   if (!D) return;
@@ -1843,6 +1872,6 @@ RW.world = {
   get active() { return active; },
   get MINI() { return MAPS[active].mini; },
   get miniCanvas() { return MAPS[active].miniCanvas; },
-  distToRoad, addCollider
+  distToRoad, addCollider, addLand, kit, LANDS
 };
 })();

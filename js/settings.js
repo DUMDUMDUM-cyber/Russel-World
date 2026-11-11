@@ -34,6 +34,7 @@ const ID = {
 };
 const EN = {}; for (const k in ID) EN[ID[k]] = k;
 let lang = 'en';
+RW.lang = () => lang; // v1.4: new dialogue picks English or Indonesian with RW.T(en, id)
 const SKIP = (n) => { const p = n.parentElement; return !p || p.closest('#labels, #dialog, script, style, textarea, #worldMap'); };
 function trNode(n) {
   const raw = n.nodeValue, t = raw.trim(); if (!t || t.length > 140) return;

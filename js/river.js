@@ -85,6 +85,7 @@ function ai(m, dt, d) {
     if (Math.random() < dt * 3) G.spawnPuff(V3(m.pos.x, m.pos.y + 0.1, m.pos.z));
     return { tx: m.pos.x + (dx / l) * 4 + rnd(-1, 1), tz: m.pos.z + (dz / l) * 4 + rnd(-1, 1), sp: k.chase * 1.25 };
   }
+  if (k.boss && k.ai) return k.ai(m, dt, d); // v1.4: the Chapter 2/3 bosses bring their own brains (adventure.js)
   if (k.boss) return k.area === 'cave' ? (RW.cave ? RW.cave.ai(m, dt) : null) : bossAi(m, dt, d);
   return null;
 }
@@ -130,7 +131,8 @@ function anim(m, dt, moving, lunge) {
   if (p.tail) { p.tail.rotation.x = Math.sin(m.t * (moving ? 9 : 2.6)) * (moving ? 0.25 : 0.12); p.tail.rotation.z = Math.sin(m.t * 1.7) * 0.1; }
   if (p.pouch) { const s = m.stolen ? 1.7 + Math.sin(m.t * 8) * 0.08 : 1; p.pouch.scale.set(0.9 * s, s, 0.8 * s); }
   if (m.k.disguise && !m.awake) { m.body.rotation.z = Math.sin(m.t * 0.9) * 0.015; m.body.position.y = 0; m.body.position.z = 0; }
-  if (m.k.boss) { if (m.k.area === 'cave') { if (RW.cave) RW.cave.anim(m, dt); } else bossAnim(m, dt); }
+  if (m.k.boss && m.k.anim) m.k.anim(m, dt);
+  else if (m.k.boss) { if (m.k.area === 'cave') { if (RW.cave) RW.cave.anim(m, dt); } else bossAnim(m, dt); }
 }
 
 // ---------- the Old Rootling ----------

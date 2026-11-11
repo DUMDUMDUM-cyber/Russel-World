@@ -334,5 +334,5 @@ function tick() {
   }
 }
 
-RW.audio = { ensure, sfx, play, tick, setMusic, setSfx, setMusicVol, setSfxVol, state };
+RW.audio = { ensure, sfx, play, tick, setMusic, setSfx, setMusicVol, setSfxVol, state, SONGS };
 })();
