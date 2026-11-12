@@ -77,7 +77,7 @@ function renderDetail() {
   let acts = '';
   if (it.kind === 'potion') {
     acts += '<button class="btn small" data-act="use">Use</button>';
-    for (const s of [0, 1]) if (g.p.hot[s] !== bagSel) acts += '<button class="btn small soft" data-act="hot' + s + '">Put on key ' + (s + 5) + '</button>';
+    { const k = g.barIndex({ i: bagSel }); acts += '<button class="btn small soft" data-act="setkey">' + RW.T(k >= 0 ? 'On key ' + (k + 1) + ' · Change' : 'Set on a button (1-6)', k >= 0 ? 'Di tombol ' + (k + 1) + ' · Ganti' : 'Pasang ke tombol (1-6)') + '</button>'; }
   }
   if (it.food && RW.pets && RW.pets.active()) acts += '<button class="btn small" data-act="feed">Feed ' + esc(RW.pets.active().name) + '</button>';
   if (it.kind === 'egg' && RW.pets) acts += '<button class="btn small" data-act="egg">Carry this egg</button>';
@@ -85,7 +85,8 @@ function renderDetail() {
     '<p class="idesc">' + esc(it.desc) + (it.food ? ' <b>Pet food +' + it.food + (it.fun ? ', fun +' + it.fun : '') + '.</b>' : '') + '</p><div class="ival">' + (it.sell ? 'Mira buys it for ' + it.sell + ' coins each.' : 'Too precious to sell.') + '</div><div class="irow">' + acts + '</div>';
   d.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => {
     const a = b.dataset.act;
-    if (a === 'use') g.useItem(bagSel); else if (a === 'feed') RW.pets.feed(bagSel); else if (a === 'egg') RW.pets.carryEgg(bagSel); else g.setHot(Number(a.slice(3)), bagSel);
+    if (a === 'setkey') { RW.jobs.pickSlot({ i: bagSel }, renderBag); return; }
+    if (a === 'use') g.useItem(bagSel); else if (a === 'feed') RW.pets.feed(bagSel); else if (a === 'egg') RW.pets.carryEgg(bagSel);
     renderBag();
   }));
 }
@@ -118,6 +119,14 @@ function renderStats() {
 
 // ---------- shop ----------
 let shopTab = 'buy';
+function sellAllList(p) {
+  const keep = new Set(['forge_crystal', 'ruby']);
+  const S = RW.story;
+  if (S) for (const id of S.ALL) { const st = S.stageOf(id); if (st) for (const o of st.goal) if (o.item) keep.add(o.item); }
+  const list = []; let n = 0, coins = 0;
+  for (const [id, c] of p.bag) { const it = RW.ITEMS[id]; if (!it || !it.sell || it.kind !== 'material' || it.rarity !== 'common' || keep.has(id)) continue; list.push([id, c]); n += c; coins += it.sell * c; }
+  return { list, n, coins };
+}
 function renderShop() {
   const g = G(), p = g.p, list = $('shopList'), coin = '<img src="' + RW.iconURL('coin', 32) + '" alt="">';
   $('tabBuy').setAttribute('aria-selected', String(shopTab === 'buy')); $('tabSell').setAttribute('aria-selected', String(shopTab === 'sell'));
@@ -133,6 +142,9 @@ function renderShop() {
   } else {
     const gearRows = !RW.shopNow && RW.gear ? RW.gear.sellRows() : '';
     if (!p.bag.length && !gearRows) html = '<p class="empty-note">Nothing to sell yet. Monsters in Sunny Meadow drop jelly, caps and more.</p>';
+    // v1.5: one button sells every plain (common) monster material, keeping forge stones and anything an active quest needs
+    const bulk = sellAllList(p);
+    if (bulk.n) html += '<div class="srow2 bulk"><img src="' + RW.iconURL('coin', 32) + '" alt=""><div class="nm">' + RW.T('Sell all materials', 'Jual semua bahan') + '<small>' + RW.T(bulk.n + ' common · keeps quest items & forge stones', bulk.n + ' biasa · barang quest & bahan tempa disimpan') + '</small><span class="price">' + coin + bulk.coins + '</span></div><div class="acts"><button class="btn small" id="sellAllMats">' + RW.T('Sell all', 'Jual semua') + '</button></div></div>';
     if (gearRows) html += '<h3 class="subh">Spare gear</h3>' + gearRows + (p.bag.length ? '<h3 class="subh">Items</h3>' : '');
     for (const [id, n] of p.bag) {
       const it = RW.ITEMS[id], rar = RW.RARITY[it.rarity];
@@ -144,6 +156,8 @@ function renderShop() {
   list.innerHTML = html;
   list.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => { g.buy(b.dataset.buy, Number(b.dataset.n)); renderShop(); syncCoins(); }));
   list.querySelectorAll('[data-sell]').forEach((b) => b.addEventListener('click', () => { g.sell(b.dataset.sell, Number(b.dataset.n)); renderShop(); syncCoins(); }));
+  const sa = $('sellAllMats');
+  if (sa) sa.addEventListener('click', () => { for (const [id, n] of sellAllList(p).list) g.sell(id, n); renderShop(); syncCoins(); });
   list.querySelectorAll('[data-gsell]').forEach((b) => b.addEventListener('click', () => { RW.gear.sell(Number(b.dataset.gsell)); renderShop(); syncCoins(); }));
 }
 $('tabBuy').addEventListener('click', () => { shopTab = 'buy'; sfx().click(); renderShop(); });
@@ -204,15 +218,8 @@ $('statBtn').addEventListener('click', () => { sfx().click(); toggle('statPanel'
 // back to the hero select screen (the game saves first)
 $('heroBtn').addEventListener('click', () => { sfx().click(); $('helpPanel').hidden = true; openId = null; if (RW.menu) RW.menu.backToSelect(); });
 
-// hotbar potion icons
-function renderHotbar() {
-  const g = G();
-  [4, 5].forEach((slot, i) => {
-    const el = document.querySelector('.slot[data-slot="' + slot + '"]'), id = g.p.hot[i], it = RW.ITEMS[id];
-    el.querySelector('img').src = RW.iconURL(id); el.setAttribute('aria-label', (slot + 1) + ': ' + (it ? it.name : 'Empty'));
-  });
-  if (RW.jobs) RW.jobs.renderSlots();
-}
+// the 6 buttons (skills and items) are drawn by jobs.js
+function renderHotbar() { if (RW.jobs) RW.jobs.renderSlots(); }
 
 RW.UI = { toast, banner, open, close, toggle, closeAll, isOpen, renderBag, renderStats, renderShop, renderHotbar, say, showDialog, hideDialog, tickDialog, syncCoins, syncSound, get openId() { return openId; }, get talking() { return !!dlg; } };
 })();

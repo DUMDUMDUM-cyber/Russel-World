@@ -114,7 +114,7 @@ Object.assign(RW.TITLES, {
 });
 
 // ======================================================================= Sunhaven shops, the balloon
-const LINA = ['red_s', 'red_m', 'blue_s', 'blue_m', 'antidote', 'wake_herb', 'warm_tea', 'fish_stew', 'tropic_mix'];
+const LINA = ['red_m', 'red_l', 'red_xl', 'blue_m', 'blue_l', 'blue_xl','antidote', 'wake_herb', 'warm_tea', 'fish_stew', 'tropic_mix'];
 const NELL = ['marsh_egg', 'sky_egg', 'pet_kibble', 'pet_treat', 'frost_pie', 'tropic_mix'];
 const pending = (id) => S && S.pending && S.pending(id);
 const Lsay = (n, en, id) => ({ who: n.id, name: n.name, role: n.role, face: 'happy', text: T(en, id) });
@@ -130,8 +130,8 @@ const skyOpen = (p) => qDone('mq49') || p.lv >= 40;
 RW.talkHooks = RW.talkHooks || [];
 RW.talkHooks.push((n) => {
   const p = P(); if (!p) return false;
-  if (n.id === 'gus') { if (pending('gus')) return false; UI.say([Lsay(n, 'The grand forge of Sunhaven! Forge Crystals make anything, Rubies make it great. Bolt was my student, you know.', 'Tempaan agung Sunhaven! Kristal Tempa bisa membuat apa saja, Ruby membuatnya hebat. Bolt itu muridku, lho.')], [{ label: T('Smithy', 'Bengkel'), run: () => { UI.hideDialog(); RW.gear.openSmith(); } }, { label: T('Goodbye', 'Dadah'), soft: true, run: bye }]); return true; }
-  if (n.id === 'lina') { if (pending('lina')) return false; UI.say([Lsay(n, 'The grand market! Potions, crystals, snacks, and a crafting bench in the back.', 'Pasar besar! Ramuan, kristal, camilan, dan meja racik di belakang.')], [{ label: T('Buy & sell', 'Beli & jual'), run: () => shop(n, LINA, T('Grand Market', 'Pasar Besar')) }, { label: T('Crafting bench', 'Meja racik'), run: () => { bye(); RW.hobby && RW.hobby.bench(); } }, { label: T('Goodbye', 'Dadah'), soft: true, run: bye }]); return true; }
+  if (n.id === 'gus') { if (pending('gus')) return false; UI.say([Lsay(n, 'The grand forge of Sunhaven! Crystals make gear stronger up to +6, Rubies take it all the way to +10. Bolt was my student, you know.', 'Tempaan agung Sunhaven! Kristal menguatkan gear sampai +6, Ruby sampai +10. Bolt itu muridku, lho.')], [{ label: T('Smithy', 'Bengkel'), run: () => { UI.hideDialog(); RW.gear.openSmith(); } }, { label: T('Goodbye', 'Dadah'), soft: true, run: bye }]); return true; }
+  if (n.id === 'lina') { if (pending('lina')) return false; UI.say([Lsay(n, 'The grand market! The biggest potions in the land, snacks, and a crafting bench in the back.', 'Pasar besar! Ramuan terbesar di negeri ini, camilan, dan meja racik di belakang.')], [{ label: T('Buy & sell', 'Beli & jual'), run: () => shop(n, LINA, T('Grand Market', 'Pasar Besar')) }, { label: T('Crafting bench', 'Meja racik'), run: () => { bye(); RW.hobby && RW.hobby.bench(); } }, { label: T('Goodbye', 'Dadah'), soft: true, run: bye }]); return true; }
   if (n.id === 'nell') { if (pending('nell')) return false; UI.say([Lsay(n, 'Marsh eggs from the bog, sky eggs from above the clouds. Treat them kindly!', 'Telur rawa dari rawa, telur langit dari atas awan. Rawat dengan baik!')], [{ label: T('Buy & sell', 'Beli & jual'), run: () => shop(n, NELL, T("Nell's Pets", 'Toko Pet Nell')) }, { label: T('Goodbye', 'Dadah'), soft: true, run: bye }]); return true; }
   if (n.id === 'zephyr' || n.id === 'zephyr2') {
     if (pending(n.id)) return false;

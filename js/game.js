@@ -25,6 +25,9 @@ function cleanHero(h) {
   const c = Object.assign(base, h, { stats: Object.assign({}, base.stats, h.stats), look: Object.assign({}, base.look, h.look) });
   c.bag = (Array.isArray(c.bag) ? c.bag : []).filter((e) => ITEMS[e[0]] && e[1] > 0);
   if (!Array.isArray(c.hot) || c.hot.length !== 2) c.hot = base.hot.slice();
+  // v1.6: the 6 buttons hold any skill (by its place in the job's list) or any usable item; old heroes get skills 1-4 and their two potions
+  if (!Array.isArray(c.bar) || c.bar.length !== 6) c.bar = [{ s: 0 }, { s: 1 }, { s: 2 }, { s: 3 }, c.hot[0] ? { i: c.hot[0] } : null, c.hot[1] ? { i: c.hot[1] } : null];
+  c.bar = c.bar.map((e) => (e && (Number.isInteger(e.s) && e.s >= 0 && e.s < 6 ? { s: e.s } : e.i && ITEMS[e.i] ? { i: e.i } : null)) || null);
   for (const k of ['visited', 'chests', 'book', 'golden', 'seen']) if (!c[k] || typeof c[k] !== 'object') c[k] = {};
   if (!Array.isArray(c.titles)) c.titles = [];
   c.pets = (Array.isArray(c.pets) ? c.pets : []).filter((p) => p && RW.PETS[p.sp]);
@@ -131,7 +134,7 @@ const player = {
   pos: holder.position, face: W.SPAWN.face, hp: 1, mp: 0, ult: 0,
   dest: null, target: null, pickTarget: null, npcTarget: null, action: null, atkCd: 0, combo: 0, lastAtk: -99,
   rallyT: 0, lastHurt: -99, lastFight: -99, dead: 0, idleT: 0, blinkT: 2.5, fidgetT: 0, runPh: 0, dustT: 0, sitting: false, sitT: 0, zone: null,
-  cds: [0, 0, 0, 0, 0, 0], buffs: {}, poison: null, stun: 0, freeze: 0
+  cds: [0, 0, 0, 0, 0, 0, 0, 0], buffs: {}, poison: null, stun: 0, freeze: 0
 };
 const pose = { runW: 0, actW: 0, sitW: 0, act: null, lastFace: player.face };
 const heroTag = lbl('<div class="tag"></div>'); heroTag.style.display = 'none';
@@ -363,7 +366,12 @@ function rollDrops(m) {
   if (RW.pets) RW.pets.drops(m);
   if (RW.gear) RW.gear.drops(m);
   if (RW.gemsRoll) RW.gemsRoll(m);
-  if (m.golden) { for (const [id, chance] of GOLDEN.drops) if (Math.random() < chance) dropItem(id, 1, m.pos, 1.4); }
+  if (m.golden) {
+    for (const [id, chance] of GOLDEN.drops) if (Math.random() < chance) dropItem(id, 1, m.pos, 1.4);
+    // user's choice: a golden monster also drops three of its own main material (worth selling)
+    const mat = (m.k.drops || []).find(([id]) => ITEMS[id] && ITEMS[id].kind === 'material' && ITEMS[id].rarity === 'common');
+    if (mat) for (let i = 0; i < 3; i++) dropItem(mat[0], 1, m.pos, 1.6);
+  }
   let n = 0;
   const cm = RW.pets ? RW.pets.coinMult() : 1; // lucky pets now give more item drops instead of coins
   for (const [id, chance] of m.k.drops) {
@@ -389,7 +397,7 @@ function gainExp(n) {
   dirty = true;
 }
 function hurtPlayer(dmg, big) {
-  if (player.dead) return;
+  if (player.dead || RW.gmGod) return; // RW.gmGod: tester hero's /god
   const head = V3(player.pos.x, player.pos.y + 1.75, player.pos.z);
   if (!big && Math.random() < D.dodge) { floatText('Dodge', 'miss', head); return; }
   dmg = Math.max(1, Math.round(dmg * (1 - Math.min(0.75, buffSum('guard'))) - D.def * (1 + buffSum('def')) * 0.5)); // v1.4: guard = less damage taken (Shield Wall, tank pets)
@@ -422,11 +430,16 @@ function reviveInTown() {
   player.dead = 0; hero.rig.rotation.set(0, 0, 0); hero.rig.position.y = 0;
   const lose = Math.min(P.exp, Math.round(expNeed(P.lv) * 0.05));
   P.exp -= lose;
-  if (W.active !== 'meadow') switchMap('meadow');
-  player.pos.set(W.SPAWN.x, W.height(W.SPAWN.x, W.SPAWN.z), W.SPAWN.z); player.face = W.SPAWN.face;
+  // user's choice: wake up in the town of the region you fell in (islands -> Coralcove, snow -> Frostpeak,
+  // marsh/Sunhaven/tower -> Sunhaven, sky -> Cloud Isle), Mossbrook for Chapter 1 lands
+  const grp = RW.lands && RW.lands.groups ? RW.lands.groups.find((g) => g.ids && g.ids.includes(W.active)) : null;
+  const home = grp ? W.LANDS.find((L) => L.id === grp.ids[0]) : null;
+  const spot = home && home.arrive ? { map: home.id, x: home.arrive.x, z: home.arrive.z, face: home.arrive.face || 0, name: home.name } : { map: 'meadow', x: W.SPAWN.x, z: W.SPAWN.z, face: W.SPAWN.face, name: 'Mossbrook' };
+  if (W.active !== spot.map) switchMap(spot.map);
+  player.pos.set(spot.x, W.height(spot.x, spot.z), spot.z); player.face = spot.face;
   player.hp = Math.round(D.maxHp * 0.6); player.mp = Math.round(D.maxMp * 0.6);
   cam.tx = player.pos.x; cam.tz = player.pos.z;
-  sfx.revive(); UI.toast('You fainted and woke up in Mossbrook. Lost ' + lose + ' EXP.');
+  sfx.revive(); UI.toast(RW.T('You fainted and woke up in ' + spot.name + '. Lost ' + lose + ' EXP.', 'Kamu pingsan dan bangun di ' + spot.name + '. EXP berkurang ' + lose + '.'));
   save();
   emit('revive');
 }
@@ -490,6 +503,26 @@ function usePotion(id) {
   if (UI.isOpen('bagPanel')) UI.renderBag();
   return true;
 }
+// what one of the 6 buttons holds right now: { item } or { skill, idx } (skills follow the current job, so a try-out shows its own)
+function slotEntry(i) {
+  const e = P && P.bar && P.bar[i]; if (!e) return null;
+  if (e.i) return ITEMS[e.i] ? { item: e.i } : null;
+  const list = jobSkills() || SKILLS, s = list[e.s];
+  return s ? { skill: s, idx: e.s } : null;
+}
+// put a skill ({s}) or item ({i}) on button k; if it was on another button the two swap (cooldowns travel along)
+const parkedCd = {};
+function setBar(k, e) {
+  const b = P.bar, same = (x) => x && e && (e.i ? x.i === e.i : x.s === e.s && x.i == null);
+  const j = e ? b.findIndex(same) : -1;
+  if (j === k) return;
+  const old = b[k];
+  if (old && old.s != null) parkedCd['s' + old.s] = time + (player.cds[k] || 0);
+  if (j >= 0) { b[j] = old; const c = player.cds[j]; player.cds[j] = player.cds[k] || 0; player.cds[k] = c; if (old && old.s != null) delete parkedCd['s' + old.s]; }
+  else player.cds[k] = e && e.s != null && parkedCd['s' + e.s] ? Math.max(0, parkedCd['s' + e.s] - time) : 0;
+  b[k] = e ? (e.i ? { i: e.i } : { s: e.s }) : null;
+  dirty = true; sfx.click(); UI.renderHotbar();
+}
 // skill level: the hero's own, or the level a try-out or trial lends
 const skillLv = (id) => (tempJob ? tempJob.skills[id] || 0 : (P && P.skills[id]) || 0);
 const jobSkills = () => (jobNow() === 'novice' ? null : RW.JOBS[jobNow()].skills);
@@ -505,6 +538,10 @@ const COMBO_NAMES = {
 };
 const SKILL_THEME = {
   bash: ['Coconut Bonk', '🥥', 0xc8a070], pebble: ['Peanut Toss', '🥜', 0xd8b070], whirl: ['Cinnamon Roll Spin', '🍥', 0xbfe6ff], rally: ['Honey Bee Cheer', '🐝', 0xffd84d],
+  whirlblade: ['Spinning Donut Blade', '🍩', 0xc8f0e0], titan: ['Mighty Gorilla Smash', '🦍', 0xc8a06a],
+  pierce: ['Swordfish Arrow', '🐟', 0xfff0a0], skyhunter: ['Phoenix Pepper Rain', '🦅', 0xff7a40],
+  blizzard: ['Snow Cone Blizzard', '🍧', 0xa8e0ff], meteor: ['Giant Meatball Meteor', '☄️', 0xff7a30],
+  rocketpunch: ['Rocket Kangaroo Punch', '🦘', 0xffb060], gigabeam: ['Giga Pineapple Beam', '🍍', 0x7ce8ff],
   cleave: ['Watermelon Slice', '🍉', 0xff7a8a], rush: ['Raging Rhino Rush', '🦏', 0xdddddd], warcry: ['Lion Roar', '🦁', 0xff8a5a], earthslam: ['Elephant Stomp', '🐘', 0xc8a06a],
   powershot: ['Carrot Missile', '🥕', 0xffa040], venom: ['Snake Bite Arrow', '🐍', 0x9ae070], hawkeye: ['Eagle Eye', '🦅', 0x9ff07a], arrowrain: ['Blueberry Rain', '🫐', 0x7a8aff],
   firebolt: ['Hot Chili Bolt', '🌶️', 0xff5a30], frost: ['Ice Cream Shard', '🍦', 0xa8e0ff], stoneskin: ['Turtle Shell', '🐢', 0x8ac070], gust: ['Butterfly Breeze', '🦋', 0xc8f0e0],
@@ -541,11 +578,14 @@ function comboShout(n) {
 function useSlot(i) {
   AU.ensure(); if (player.dead) return;
   if (player.stun > 0 || player.freeze > 0) return deny('You are too dizzy to do that!');
+  if (!(i >= 0 && i < 6)) return;
   if (player.cds[i] > 0) return deny('Not ready yet.');
-  if (i >= 4) { if (usePotion(P.hot[i - 4])) player.cds[i] = 1; return; }
+  const e = slotEntry(i);
+  if (!e) return deny(RW.T('Nothing on key ' + (i + 1) + '. Use the Set button in the Skills window (C) or the Bag (B).', 'Tombol ' + (i + 1) + ' kosong. Pakai tombol Pasang di jendela Skill (C) atau Tas (B).'));
+  if (e.item) { if (usePotion(e.item)) player.cds[i] = 1; return; }
   if (player.action && !player.action.basic) return; // a skill is still going; a plain attack is cut short for the skill
-  if (jobSkills()) return useJobSkill(i);
-  const s = SKILLS[i];
+  if (jobSkills()) return useJobSkill(e.idx, i);
+  const s = e.skill;
   if (player.mp < s.mp) return deny('Not enough MP.');
   if (s.id === 'bash') { const t = nearestMonster(2.6); if (!t) return deny('No monster close enough.'); startAction('bash', t); }
   else if (s.id === 'pebble') { const t = nearestMonster(s.range); if (!t) return deny('No monster within ' + s.range + ' m.'); startAction('pebble', t); }
@@ -555,8 +595,11 @@ function useSlot(i) {
   emit('skill', s.id);
 }
 const SKILL_ACT = { cone: 'cleave', dash: 'rush', buff: 'buff', area: 'slam', shot: 'shoot', bolt: 'cast', missile: 'fire', beam: 'beam', rain: 'shoot' };
-function useJobSkill(i) {
+function useJobSkill(i, slot) {
+  if (slot == null) slot = i;
   const job = jobNow(), s = RW.JOBS[job].skills[i], lv = skillLv(s.id);
+  if (!s) return;
+  if (!lv && s.lv && !tempJob && P.lv < s.lv) return deny(RW.T(s.name + ' opens at Lv. ' + s.lv + '.', s.name + ' terbuka di Lv. ' + s.lv + '.'));
   if (!lv) return deny(tempJob ? s.name + ' is not part of this try-out.' : 'Learn ' + s.name + ' first: press C, then Skills.');
   const mp = skillMp(s, lv); if (player.mp < mp) return deny('Not enough MP.');
   let target = null;
@@ -567,9 +610,12 @@ function useJobSkill(i) {
   if (s.kind === 'area' && job === 'mage') act = 'cast';
   if ((s.kind === 'rain' || s.kind === 'shot') && job === 'robot') act = 'fire';
   if (s.kind === 'shot' && weaponNow() === 'slingshot') act = 'sling';
+  if (s.kind === 'beam' && job !== 'robot') act = weaponNow() === 'slingshot' ? 'sling' : 'shoot';
+  if (s.kind === 'rain' && job === 'mage') act = 'cast';
+  if (s.kind === 'dash' && job === 'robot') act = 'rush';
   startAction(act, target);
   player.action.skill = s; player.action.lv = lv;
-  player.mp -= mp; player.cds[i] = s.cd;
+  player.mp -= mp; player.cds[slot] = s.cd;
   skillShout(s, target);
   emit('skill', s.id);
 }
@@ -666,9 +712,9 @@ function rainDown(kind, center, radius, waves, span, hitEach) {
     const tw = (w / Math.max(1, waves - 1)) * span;
     for (let n = 0; n < (kind === 'star' ? 1 : 5); n++) {
       const a = rnd(0, 6.28), r = Math.sqrt(Math.random()) * radius, x = center.x + Math.cos(a) * r, z = center.z + Math.sin(a) * r, y0 = W.height(x, z);
-      const m = kind === 'star' ? makeShot('orb', 0xfff0a0) : makeShot(kind === 'missile' ? 'missile' : 'arrow'); m.visible = false;
+      const m = kind === 'star' ? makeShot('orb', 0xfff0a0) : makeShot(kind === 'missile' || kind === 'shard' ? kind : 'arrow'); m.visible = false;
       m.lookAt(x, y0 - 10, z);
-      fx.push({ o: m, t: -tw - n * 0.04, dur: 0.35, update: (f, k) => { if (f.t < 0) return; m.visible = true; const u = Math.min(1, f.t / 0.3); m.position.set(x + (1 - u) * 1.5, y0 + 9 * (1 - u), z); if (u >= 1 && !f.hit) { f.hit = true; if (kind !== 'arrow') explode(V3(x, y0 + 0.3, z), kind === 'star' ? 0xfff0a0 : 0xffa040, kind === 'star' ? 2.2 : 1.4); else spawnPuff(V3(x, y0 + 0.1, z)); } } });
+      fx.push({ o: m, t: -tw - n * 0.04, dur: 0.35, update: (f, k) => { if (f.t < 0) return; m.visible = true; const u = Math.min(1, f.t / 0.3); m.position.set(x + (1 - u) * 1.5, y0 + 9 * (1 - u), z); if (u >= 1 && !f.hit) { f.hit = true; if (kind === 'shard') { for (let q = 0; q < 3; q++) spawnPuff(V3(x + rnd(-0.3, 0.3), y0 + 0.2, z + rnd(-0.3, 0.3)), 0xdff6ff, true); } else if (kind !== 'arrow') explode(V3(x, y0 + 0.3, z), kind === 'star' ? 0xfff0a0 : 0xffa040, kind === 'star' ? 2.2 : 1.4); else spawnPuff(V3(x, y0 + 0.1, z)); } } });
     }
     setTimeout(() => { if (!P || player.dead) return; spawnRing(V3(center.x, W.height(center.x, center.z), center.z), kind === 'star' ? 0xfff0a0 : 0xffffff, radius, 0.3); hitEach(); }, (tw + 0.32) * 1000);
   }
@@ -687,6 +733,7 @@ function runSkill(a) {
   if (s.kind === 'cone') {
     for (const m of monsters) { if (!m.alive) continue; const dx = m.pos.x - player.pos.x, dz = m.pos.z - player.pos.z, d = Math.hypot(dx, dz); if (d > s.range + m.k.radius * m.scale) continue; if (Math.abs(wrapAngle(Math.atan2(dx, dz) - player.face)) < 1.1) hitMonster(m, pw, 0.7, true, false, o); }
     const f = V3(player.pos.x + Math.sin(player.face) * 1.6, player.pos.y + 0.9, player.pos.z + Math.cos(player.face) * 1.6); spawnSlash(f, player.face, true); spawnSlash(V3(f.x, f.y + 0.3, f.z), player.face, false); spawnRing(player.pos, 0xffe9a0, 2.6, 0.35);
+    if (s.element === 'earth') { rocks(V3(player.pos.x + Math.sin(player.face) * 2.2, player.pos.y, player.pos.z + Math.cos(player.face) * 2.2), 12, 2.2); shakeT = Math.max(shakeT, 0.25); }
   } else if (s.kind === 'dash') {
     if (t) { hitMonster(t, pw, 1.0, true, false, { stun: s.stun + s.stunLv * (lv - 1) }); spawnRing(t.pos, 0xffffff, 1.6, 0.4); for (let i = 0; i < 5; i++) spawnPuff(V3(t.pos.x + rnd(-0.5, 0.5), t.pos.y + 0.2, t.pos.z + rnd(-0.5, 0.5))); }
   } else if (s.kind === 'buff') {
@@ -703,6 +750,7 @@ function runSkill(a) {
     for (const m of inRadius(player.pos, r)) hitMonster(m, pw, s.kb || 0.8, true, false, o);
     spawnRing(player.pos, ELCOL[s.element] || 0xffffff, r, 0.5); spawnRing(player.pos, 0xffffff, r * 0.6, 0.35);
     if (s.element === 'earth') { rocks(player.pos, 12, r); shakeT = Math.max(shakeT, 0.2); }
+    else if (s.element === 'fire') { explode(V3(player.pos.x, player.pos.y + 0.4, player.pos.z), 0xff7a30, r * 0.8); for (let i = 0; i < 5; i++) { const ang = i / 5 * 6.28; explode(V3(player.pos.x + Math.cos(ang) * r * 0.6, player.pos.y + 0.3, player.pos.z + Math.sin(ang) * r * 0.6), 0xffb040, 1.4); } shakeT = Math.max(shakeT, 0.3); }
     else for (let i = 0; i < 14; i++) { const ang = i / 14 * 6.28; spawnPuff(V3(player.pos.x + Math.cos(ang) * r * 0.7, player.pos.y + 0.5 + (i % 3) * 0.4, player.pos.z + Math.sin(ang) * r * 0.7), 0xe8fff4, true); }
   } else if (s.kind === 'shot') {
     if (!t) return;
@@ -724,11 +772,11 @@ function runSkill(a) {
   } else if (s.kind === 'beam') {
     const dir = t ? V3(t.pos.x - player.pos.x, 0, t.pos.z - player.pos.z).normalize() : V3(Math.sin(player.face), 0, Math.cos(player.face));
     const from = muzzle(), to = V3(from.x + dir.x * s.range, from.y, from.z + dir.z * s.range);
-    fxLine(from, to, 0x7ce8ff, 0.32, 0.45); sfx.crit();
+    fxLine(from, to, s.color || 0x7ce8ff, 0.32 * Math.max(1, (s.width || 1.4) / 1.4), 0.45); sfx.crit();
     beamHit(dir, s.range, s.width, (m) => hitMonster(m, pw, 0.4, true, false, o));
   } else if (s.kind === 'rain') {
     const c = t ? t.pos.clone() : V3(player.pos.x + Math.sin(player.face) * 5, 0, player.pos.z + Math.cos(player.face) * 5);
-    rainDown(job === 'robot' ? 'missile' : 'arrow', c, s.radius, s.waves, 1.0, () => { for (const m of inRadius(c, s.radius)) hitMonster(m, pw, 0.15, false, false, o); });
+    rainDown(s.drop || (job === 'robot' ? 'missile' : 'arrow'), c, s.radius, s.waves, s.waves > 5 ? 1.5 : 1.0, () => { for (const m of inRadius(c, s.radius)) hitMonster(m, pw, 0.15, false, false, s.freeze ? Object.assign({}, o, { freeze: Math.random() < s.freeze ? s.freezeT : 0 }) : o); });
   }
 }
 // each job's finishing move
@@ -1043,7 +1091,7 @@ function autoHunt() {
 }
 function updatePlayer(dt) {
   const j = hero.j;
-  for (let i = 0; i < 6; i++) player.cds[i] = Math.max(0, player.cds[i] - dt);
+  for (let i = 0; i < 8; i++) player.cds[i] = Math.max(0, (player.cds[i] || 0) - dt);
   player.atkCd = Math.max(0, player.atkCd - dt); player.rallyT = Math.max(0, player.rallyT - dt);
   if (player.dead) {
     player.dead += dt; const k = Math.min(1, player.dead / 0.6);
@@ -1407,7 +1455,7 @@ function updateHUD() {
   setIf('coin', P.coins, (v) => { hud.coin.textContent = String(v); });
   setIf('pts', P.pts + (P.sp || 0), (v) => { hud.badge.hidden = v <= 0; hud.badge.textContent = String(v); });
   const ep = P.lv >= 50 ? 100 : Math.floor(P.exp / expNeed(P.lv) * 1000) / 10;
-  setIf('exp', ep, (v) => { hud.expText.textContent = 'Lv. ' + P.lv + ' · EXP ' + v.toFixed(1) + '%'; hud.expFill.style.width = v + '%'; });
+  setIf('exp', P.lv * 1000 + ep, () => { hud.expText.textContent = 'Lv. ' + P.lv + ' · EXP ' + ep.toFixed(1) + '%'; hud.expFill.style.width = ep + '%'; });
   setIf('ult', Math.floor(player.ult), (v) => { hud.gfg.setAttribute('stroke-dashoffset', String(157.1 * (1 - v / 100))); hud.ult.classList.toggle('ready', v >= 100); });
   // buffs and status effects as little chips under the HP bars
   const chips = [];
@@ -1422,17 +1470,16 @@ function updateHUD() {
   if (tempJob) chips.push(['job', (tempJob.mode === 'trial' ? 'Trial ' : 'Try-out ') + Math.max(0, Math.ceil(tempJob.until - time)) + 's']);
   setIf('buffs', chips.map((c) => c.join(':')).join('|'), () => { hud.buffs.innerHTML = chips.map(([c, t]) => '<span class="buff ' + c + '">' + esc(t) + '</span>').join(''); });
   const js = jobSkills();
+  setIf('slots', jobNow() + weaponNow() + JSON.stringify(P.bar) + JSON.stringify(js ? js.map((x) => skillLv(x.id)) : []), () => UI.renderHotbar());
   for (let i = 0; i < 6; i++) {
-    const cd = player.cds[i], sk = i < 4 ? (js ? js[i] : SKILLS[i]) : null, max = sk ? sk.cd : 1;
-    setIf('cd' + i, cd > 0 ? Math.ceil(cd * 10) : 0, () => { const el = hud.slots[i]; el.querySelector('.cd').style.height = (cd > 0 ? cd / max * 100 : 0) + '%'; el.querySelector('.cdt').textContent = cd > 0.95 ? String(Math.ceil(cd)) : ''; });
+    const e = slotEntry(i), sk = e && e.skill, cd = player.cds[i] || 0, max = sk ? sk.cd : 1;
+    setIf('cd' + i, cd > 0 ? Math.ceil(cd * 10) : 0, () => { const el = hud.slots[i]; el.querySelector('.cd').style.height = (cd > 0 ? Math.min(1, cd / max) * 100 : 0) + '%'; el.querySelector('.cdt').textContent = cd > 0.95 ? String(Math.ceil(cd)) : ''; });
     const lv = sk && js ? skillLv(sk.id) : 1;
-    const off = i < 4 ? !lv || player.mp < (js ? skillMp(sk, lv) : sk.mp) : bagCount(P.hot[i - 4]) <= 0;
+    const off = !e || (sk ? !lv || player.mp < (js ? skillMp(sk, lv) : sk.mp) : bagCount(e.item) <= 0);
     setIf('off' + i, off, (v) => hud.slots[i].classList.toggle('off', v));
-    if (i < 4) setIf('lock' + i, !lv, (v) => hud.slots[i].classList.toggle('locked', v));
+    setIf('lock' + i, !!sk && !lv, (v) => hud.slots[i].classList.toggle('locked', v));
+    setIf('hc' + i, e && e.item ? e.item + bagCount(e.item) : '', () => { hud.slots[i].querySelector('.count').textContent = e && e.item ? String(bagCount(e.item)) : ''; });
   }
-  setIf('slots', jobNow() + weaponNow() + JSON.stringify(js ? js.map((x) => skillLv(x.id)) : []), () => { if (RW.jobs) RW.jobs.renderSlots(); });
-  for (let i = 0; i < 2; i++) setIf('hc' + i, P.hot[i] + bagCount(P.hot[i]), () => { hud.slots[4 + i].querySelector('.count').textContent = String(bagCount(P.hot[i])); });
-  setIf('hot', P.hot.join(), () => UI.renderHotbar());
 }
 const mini = $('mini'), mctx = mini.getContext('2d'), mapN = document.querySelector('.mapn');
 function drawMini() {
@@ -1518,7 +1565,9 @@ RW.G = {
   derived: () => D,
   bagCount,
   useItem(id) { AU.ensure(); usePotion(id); },
-  setHot(slot, id) { P.hot[slot] = id; dirty = true; sfx.click(); UI.toast(ITEMS[id].name + ' is now on key ' + (slot + 5) + '.'); },
+  setHot(slot, id) { setBar(4 + slot, { i: id }); },
+  setBar, slotEntry,
+  barIndex(e) { return P && P.bar ? P.bar.findIndex((x) => x && (e.i ? x.i === e.i : x.i == null && x.s === e.s)) : -1; },
   addStat(k) { if (P.pts <= 0) return; P.pts--; P.stats[k]++; const hpPct = player.hp / D.maxHp, mpPct = player.mp / D.maxMp; D = derive(P, jobNow(), weaponNow()); player.hp = Math.min(D.maxHp, Math.max(player.hp, hpPct * D.maxHp)); player.mp = Math.min(D.maxMp, Math.max(player.mp, mpPct * D.maxMp)); sfx.point(); dirty = true; },
   buy(id, n) { const it = ITEMS[id], cost = it.price * n; if (P.coins < cost) { deny('Not enough coins.'); return; } P.coins -= cost; bagAdd(id, n); sfx.buy(); UI.toast('Bought ' + n + ' × ' + esc(it.name)); save(); },
   sell(id, n) { const it = ITEMS[id]; if (!bagTake(id, n)) return; P.coins += it.sell * n; sfx.coin(); UI.toast('Sold ' + n + ' × ' + esc(it.name) + ' for ' + it.sell * n + ' coins'); save(); emit('sell', id, n); },
@@ -1536,7 +1585,7 @@ RW.G = {
   // ---- pets (pets.js) ----
   hitMonster, spawnSpark, deny: (t) => deny(t), get dirty() { return dirty; }, set dirty(v) { dirty = v; },
   get autoOn() { return autoOn; }, setAuto,
-  setTempJob(o) { tempJob = Object.assign({ skills: {}, mode: 'try' }, o, { until: time + (o.dur || 60) }); player.buffs = {}; player.action = null; for (let i = 0; i < 4; i++) player.cds[i] = 0; setHero(P.look); rederive(); player.mp = D.maxMp; UI.renderHotbar(); refreshHeroTag(); },
+  setTempJob(o) { tempJob = Object.assign({ skills: {}, mode: 'try' }, o, { until: time + (o.dur || 60) }); player.buffs = {}; player.action = null; for (let i = 0; i < 6; i++) { const e = P.bar[i]; if (e && e.s != null) player.cds[i] = 0; } setHero(P.look); rederive(); player.mp = D.maxMp; UI.renderHotbar(); refreshHeroTag(); },
   clearTempJob() { if (!tempJob) return; tempJob = null; player.buffs = {}; player.action = null; player.target = null; setHero(P.look); rederive(); UI.renderHotbar(); refreshHeroTag(); },
   get tempJob() { return tempJob; },
   // ---- gear (gear.js): rebuild the hero model and stats after a change of clothes ----
@@ -1549,6 +1598,7 @@ RW.G = {
   learnSkill(id) {
     const js = jobSkills(); if (!js || tempJob) return false; const s = js.find((x) => x.id === id); if (!s) return false;
     const lv = P.skills[id] || 0; if ((P.sp || 0) <= 0 || lv >= RW.SKILL_MAX) return false;
+    { const J = RW.JOBS[P.job], sk = J && J.skills.find((x) => x.id === id); if (sk && sk.lv && P.lv < sk.lv) return false; }
     P.sp--; P.skills[id] = lv + 1; sfx.point(); dirty = true; save(); emit('learn', id); return true;
   },
   get traveling() { return traveling; },
@@ -1603,7 +1653,7 @@ function enterWorld(i) {
   const okPos = P.pos && W.mapAt(P.pos.x, P.pos.z) === mapId && W.walkable(P.pos.x, P.pos.z);
   const start = okPos ? P.pos : ARRIVE[mapId];
   if (!okPos) P.face = ARRIVE[mapId].face;
-  Object.assign(player, { face: okPos ? P.face : ARRIVE[mapId].face, hp: Math.min(P.hp, D.maxHp), mp: Math.min(P.mp, D.maxMp), ult: P.ult || 0, dest: null, target: null, pickTarget: null, npcTarget: null, spotTarget: null, action: null, atkCd: 0, combo: 0, rallyT: 0, dead: 0, idleT: 0, fidgetT: 0, sitting: false, sitT: 0, zone: null, cds: [0, 0, 0, 0, 0, 0], buffs: {}, poison: null, stun: 0, freeze: 0 });
+  Object.assign(player, { face: okPos ? P.face : ARRIVE[mapId].face, hp: Math.min(P.hp, D.maxHp), mp: Math.min(P.mp, D.maxMp), ult: P.ult || 0, dest: null, target: null, pickTarget: null, npcTarget: null, spotTarget: null, action: null, atkCd: 0, combo: 0, rallyT: 0, dead: 0, idleT: 0, fidgetT: 0, sitting: false, sitT: 0, zone: null, cds: [0, 0, 0, 0, 0, 0, 0, 0], buffs: {}, poison: null, stun: 0, freeze: 0 });
   player.pos.set(start.x, W.height(start.x, start.z), start.z);
   hero.root.rotation.y = player.face; pose.runW = pose.actW = pose.sitW = 0; pose.act = null; pose.lastFace = player.face;
   document.getElementById('sitBtn').setAttribute('aria-pressed', 'false');
@@ -1655,8 +1705,8 @@ for (const n of npcs) { n.c.root.visible = false; hideEl(n.tag); }
 let prev = performance.now(), miniT = 0;
 function frame(now) {
   const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
-  tickAll(dt);
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame); // schedule first: one bad frame must never freeze the whole game
+  try { tickAll(dt); } catch (e) { if (!frame.errs || frame.errs < 5) { frame.errs = (frame.errs || 0) + 1; console.error('Frame error:', e); } }
 }
 RW.debug.step = (n) => { for (let i = 0; i < n; i++) tickAll(1 / 30); };
 function tickAll(dt) {

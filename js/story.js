@@ -431,7 +431,8 @@ const SCENES = {
 // ---------- quest state ----------
 const qs = (id) => P && P.quests[id];
 const active = (id) => { const s = qs(id); return !!s && !s.done; };
-const stageOf = (id) => { const s = qs(id); return s && !s.done ? QUESTS[id].stages[s.st] : null; };
+// quests added later (chapters 2-5) skip the load-time "need = 1" pass, so fill it in here too
+const stageOf = (id) => { const s = qs(id); if (!s || s.done) return null; const st = QUESTS[id].stages[s.st]; if (st && !st._n) { st._n = true; for (const o of st.goal) o.need = o.need || 1; } return st; };
 function objCount(id, i) {
   const st = stageOf(id); if (!st) return 0; const o = st.goal[i];
   if (o.t === 'have') return Math.min(o.need, G.bagCount(o.item));
@@ -842,31 +843,52 @@ const DAILY = {
   bees: { text: (n) => 'Defeat ' + n + ' Bramblebees or Bushlings in Thornbush', ns: [3, 4, 5], minLv: 8 },
   rootlings: { text: (n) => 'Defeat ' + n + ' Rootlings in the burrow', ns: [5, 6], minLv: 5 },
   jelly: { text: (n) => 'Pick up ' + n + ' Leaf Jelly', ns: [4, 6] },
-  coins: { text: (n) => 'Collect ' + n + ' coins from monsters', ns: [40, 60, 80] },
+  // v1.5: monsters no longer drop coins, so this job is now about picking up loot (key kept for old saves)
+  coins: { text: (n) => 'Pick up ' + n + ' items dropped by monsters', ns: [5, 8, 10] },
   rest: { text: (n) => 'Sit and rest for ' + n + ' seconds', ns: [30] },
   pebble: { text: (n) => 'Use Pebble Toss ' + n + ' times', ns: [4, 6] },
-  sell: { text: (n) => 'Sell ' + n + ' things to Mira', ns: [3, 5] }
+  sell: { text: (n) => 'Sell ' + n + ' things to Mira', ns: [3, 5] },
+  // v1.5 (user's choice): jobs follow the hero's level — defeat a monster near your level in a place you have been
+  hunt: { text: (n, j) => { const K = RW.KINDS[j && j.kind] || {}, A = RW.AREAS[K.area]; return RW.T('Defeat ' + n + ' ' + (K.name || '?') + (A ? ' in ' + A.name : ''), 'Kalahkan ' + n + ' ' + (K.name || '?') + (A ? ' di ' + A.name : '')); }, ns: [5, 6, 8] }
 };
+// only these two kinds are rolled now; the old ones stay so older saves can still show their list
+const DAILY_ROLL = ['hunt', 'coins'];
+DAILY.coins.text = (n) => RW.T('Pick up ' + n + ' items dropped by monsters', 'Ambil ' + n + ' barang jatuhan monster');
+const dailyText = (j) => DAILY[j.k].text(j.need, j);
+// monsters for hunt jobs: not bosses or training targets, living in a map the hero has visited, level close to the hero's
+function huntPool() {
+  const seen = (P && P.visited) || {}, lv = P.lv;
+  const KINDS = RW.KINDS, ok = Object.keys(KINDS).filter((k) => { const K = KINDS[k]; return K.area && seen[K.area] && !K.boss && !K.target && K.drops && RW.AREAS[K.area] && !/cave|palace|tower/.test(K.area); });
+  // the closest levels win (never more than 2 above the hero); at least 4 to choose from
+  const fit = ok.filter((k) => (KINDS[k].baseLv || 1) <= lv + 2).sort((a, b) => Math.abs((KINDS[a].baseLv || 1) - lv) - Math.abs((KINDS[b].baseLv || 1) - lv));
+  if (!fit.length) return ['leaflet'];
+  const within = fit.filter((k) => Math.abs((KINDS[k].baseLv || 1) - lv) <= 3).length;
+  return fit.slice(0, Math.max(4, within));
+}
 function todayKey() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function rollDaily() {
   const key = todayKey(); let h = hashStr(key + P.name);
   const rr = () => { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; h = (h + 0x6d2b79f5) >>> 0; return (h % 10000) / 10000; };
-  const kinds = Object.keys(DAILY).filter((k) => !DAILY[k].minLv || P.lv >= DAILY[k].minLv);
-  const list = [];
-  while (list.length < 3 && kinds.length) { const k = kinds.splice(Math.floor(rr() * kinds.length), 1)[0], ns = DAILY[k].ns; list.push({ k, need: ns[Math.floor(rr() * ns.length)], prog: 0, done: false }); }
+  // two hunts (two different monsters) and one loot job
+  const pool = huntPool().slice(), list = [];
+  for (let i = 0; i < 2 && pool.length; i++) { const kind = pool.splice(Math.floor(rr() * pool.length), 1)[0], ns = DAILY.hunt.ns; list.push({ k: 'hunt', kind, need: ns[Math.floor(rr() * ns.length)], prog: 0, done: false }); }
+  const cn = DAILY.coins.ns; list.push({ k: 'coins', need: cn[Math.floor(rr() * cn.length)], prog: 0, done: false });
   P.daily = { day: key, taken: false, list, bonus: false };
 }
 function dailyFresh() { if (!P.daily || P.daily.day !== todayKey()) rollDaily(); return P.daily; }
-function dailyProgress(kind, amount) {
+function dailyProgress(kind, amount, sub) {
   const d = P && P.daily; if (!d || !d.taken || d.day !== todayKey()) return;
   for (const j of d.list) {
     if (j.k !== kind || j.done) continue;
+    if (kind === 'hunt' && j.kind !== sub) continue;
+    if (j.k === 'coins' && j.need > 10) j.need = 8; // old saves: the coin job had 40-80
+
     j.prog = Math.min(j.need, j.prog + amount);
     if (j.prog >= j.need) {
       j.done = true;
       const coins = 20 + 5 * P.lv, exp = Math.round(expNeed(P.lv) * 0.08);
-      sfx.questDone(); UI.toast('Daily job done: ' + esc(DAILY[j.k].text(j.need)) + ' · +' + exp + ' EXP, +' + coins + ' coins');
+      sfx.questDone(); UI.toast('Daily job done: ' + esc(dailyText(j)) + ' · +' + exp + ' EXP, +' + coins + ' coins');
       G.addCoins(coins); G.gainExp(exp);
       if (d.list.every((x) => x.done) && !d.bonus) { d.bonus = true; setTimeout(() => { if (!P) return; UI.toast('All 3 daily jobs done! Bonus: Red Potion (M), 40 coins', true); G.bagAdd('red_m', 1); G.addCoins(40); ollySay('All three! The whole board is cheering. Well, the paper is.', 'happy', true); }, 1200); }
       G.save();
@@ -878,7 +900,7 @@ function useBoard() {
   if (!P) return;
   sfx.click();
   if (!P.story.requests) { UI.say([{ who: 'board', text: 'Every notice is about the garden raids. "Brave helpers, please see Elder Oakley first."' }], [{ label: 'OK', run: bye }]); return; }
-  const d = dailyFresh(), lines = d.list.map((j) => '• ' + DAILY[j.k].text(j.need) + (d.taken ? (j.done ? '  ✓' : '  (' + j.prog + '/' + j.need + ')') : '')).join('\n');
+  const d = dailyFresh(), lines = d.list.map((j) => '• ' + dailyText(j) + (d.taken ? (j.done ? '  ✓' : '  (' + j.prog + '/' + j.need + ')') : '')).join('\n');
   if (!d.taken) {
     UI.say([{ who: 'board', text: "Today's jobs from the villagers:\n" + lines }], [
       { label: 'Take all three', run: () => { d.taken = true; bye(); sfx.questNew(); UI.toast('Daily jobs taken. Check your quest book (J).'); changed(); G.save(); } },
@@ -905,17 +927,22 @@ function trackRow(id) {
 function renderTracker() {
   const el = $('trackerList'), box = $('tracker');
   if (!P || !P.story.intro) { box.hidden = true; return; }
-  const rows = [];
-  for (const id of MAIN) if (active(id)) rows.push(trackRow(id));
-  for (const id of JOBQ) if (active(id)) rows.push(trackRow(id));
-  for (const id of SIDE) if (active(id)) rows.push(trackRow(id));
+  const rows = []; let left = 0;
+  for (const list of [MAIN, JOBQ, SIDE]) for (const id of list) if (active(id)) { rows.push(trackRow(id)); if (!stageReady(id)) left++; }
   const d = P.daily;
-  if (d && d.taken && d.day === todayKey() && d.list.some((j) => !j.done)) rows.push('<div class="tq daily"><b>Daily jobs</b>' + d.list.map((j) => '<span class="ob' + (j.done ? ' done' : '') + '">' + esc(DAILY[j.k].text(j.need)) + ' ' + j.prog + '/' + j.need + (j.done ? ' ✓' : '') + '</span>').join('') + '</div>');
-  el.innerHTML = rows.slice(0, 4).join('');
+  if (d && d.taken && d.day === todayKey() && d.list.some((j) => !j.done)) { left++; rows.push('<div class="tq daily"><b>Daily jobs</b>' + d.list.map((j) => '<span class="ob' + (j.done ? ' done' : '') + '">' + esc(dailyText(j)) + ' ' + j.prog + '/' + j.need + (j.done ? ' ✓' : '') + '</span>').join('') + '</div>'); }
+  // v1.6: the tracker folds up into one line "Quest (not finished / total)"; the ▲▼ button opens and closes it
+  const min = !!P.trackMin;
+  el.innerHTML = '<div class="trhead"><b>Quest (' + left + '/' + rows.length + ')</b><button class="trfold" data-fold aria-label="' + (min ? 'Show quests' : 'Hide quests') + '">' + (min ? '▼' : '▲') + '</button></div>' + (min ? '' : rows.slice(0, 4).join(''));
+  box.classList.toggle('min', min);
   box.hidden = !rows.length;
   const avail = SIDE.some((id) => sideOpen(id));
   $('qBadge').hidden = !avail;
 }
+$('tracker').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-fold]') || !P) return;
+  e.stopPropagation(); P.trackMin = !P.trackMin; G.dirty = true; renderTracker();
+}, true);
 function questCard(id) {
   const q = QUESTS[id], st = stageOf(id), r = q.reward || {};
   let objs = '';
@@ -949,7 +976,7 @@ function renderJournal() {
   html += '<h3>Daily jobs</h3>';
   const d = P.daily;
   if (!P.story.requests) html += '<p class="qempty">The notice board by the north gate opens after you meet Elder Oakley.</p>';
-  else if (d && d.taken && d.day === todayKey()) html += '<div class="qcard"><ul>' + d.list.map((j) => '<li class="' + (j.done ? 'done' : '') + '">' + esc(DAILY[j.k].text(j.need)) + ' (' + j.prog + '/' + j.need + ')' + (j.done ? ' ✓' : '') + '</li>').join('') + '</ul><div class="qrew">Each job: coins and EXP. All three: a bonus Red Potion (M) and 40 coins. New jobs every day.</div></div>';
+  else if (d && d.taken && d.day === todayKey()) html += '<div class="qcard"><ul>' + d.list.map((j) => '<li class="' + (j.done ? 'done' : '') + '">' + esc(dailyText(j)) + ' (' + j.prog + '/' + j.need + ')' + (j.done ? ' ✓' : '') + '</li>').join('') + '</ul><div class="qrew">Each job: coins and EXP. All three: a bonus Red Potion (M) and 40 coins. New jobs every day.</div></div>';
   else html += '<p class="qempty">Visit the notice board by the north gate for today\'s 3 jobs.</p>';
   body.innerHTML = html;
 }
@@ -1004,6 +1031,7 @@ function progress(match, amount) {
 RW.on('kill', (m) => {
   if (!P) return;
   progress((o) => o.t === 'kill' && (o.tag ? m.quest === o.tag : o.kind === m.kind && !m.quest), 1);
+  dailyProgress('hunt', 1, m.kind);
   dailyProgress({ leaflet: 'leaflets', breeze_leaflet: 'leaflets', mushling: 'mushlings', moss_mushling: 'mushlings', bristleboar: 'boars', thornhog: 'thornhogs', plopfrog: 'frogs', rockpinch: 'frogs', bramblebee: 'bees', bushling: 'bees', rootling: 'rootlings' }[m.kind], 1);
   if (m.golden) setTimeout(() => ollySay(['GOLDEN! You beat a golden one! I will tell everyone. Twice.', 'Look at all that shiny loot! I knew it, I just knew it.'][Math.floor(rnd(0, 2))], 'happy', true), 900);
   // Leaflets drop the Sunberries they stole while the garden quest is on
@@ -1020,10 +1048,10 @@ RW.on('pickup', (id, n) => {
   if (!P) return;
   if (ITEMS[id] && ITEMS[id].kind === 'quest') { progress((o) => o.t === 'collect' && o.item === id, n); UI.toast('+' + n + ' ' + esc(ITEMS[id].name)); }
   if (id === 'leaf_jelly') dailyProgress('jelly', n);
+  if (ITEMS[id] && ITEMS[id].kind !== 'quest') dailyProgress('coins', 1);
   if (P.story.tut && !P.story.tut.pick) P.story.tut.pick = true;
   changed();
 });
-RW.on('coins', (n) => dailyProgress('coins', n));
 RW.on('sell', (id, n) => { dailyProgress('sell', n); changed(); });
 RW.on('skill', (id) => { if (id === 'pebble') dailyProgress('pebble', 1); });
 RW.on('levelup', (lv) => { if (olly.state === 'follow') { olly.spin = 1; ollySay(['Hoo-ray! Level ' + lv + '! I taught you everything I know.', 'Level ' + lv + '! I knew it! Well, I hoped it.', 'LEVEL ' + lv + '! Somebody hold my scarf!'][lv % 3], 'happy', true); } changed(); });

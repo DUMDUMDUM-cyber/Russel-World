@@ -16,6 +16,11 @@ const ITEMS = {
   red_m: { name: 'Red Potion (M)', kind: 'potion', rarity: 'common', heal: 160, price: 45, sell: 12, icon: 'potion', color: '#c8403a', big: true, desc: 'A hearty bottle. Restores 160 HP.' },
   blue_s: { name: 'Blue Potion (S)', kind: 'potion', rarity: 'common', mana: 30, price: 20, sell: 5, icon: 'potion', color: '#4a92e0', desc: 'Cool mint water from Mira\'s well. Restores 30 MP.' },
   blue_m: { name: 'Blue Potion (M)', kind: 'potion', rarity: 'common', mana: 80, price: 55, sell: 14, icon: 'potion', color: '#3470c0', big: true, desc: 'A tall bottle of mint water. Restores 80 MP.' },
+  // v1.5 (user's choice): bigger potions for later lands. L in Coralcove and Frostpeak, L and XL in Sunhaven
+  red_l: { name: 'Red Potion (L)', kind: 'potion', rarity: 'common', heal: 400, price: 120, sell: 30, icon: 'potion', color: '#a82a26', big: true, desc: 'A big jug of berry tonic. Restores 400 HP.' },
+  red_xl: { name: 'Red Potion (XL)', kind: 'potion', rarity: 'common', heal: 900, price: 280, sell: 70, icon: 'potion', color: '#8a1a1e', big: true, desc: 'The grandest bottle in Sunhaven. Restores 900 HP.' },
+  blue_l: { name: 'Blue Potion (L)', kind: 'potion', rarity: 'common', mana: 200, price: 140, sell: 35, icon: 'potion', color: '#2458a8', big: true, desc: 'A big jug of cool mint water. Restores 200 MP.' },
+  blue_xl: { name: 'Blue Potion (XL)', kind: 'potion', rarity: 'common', mana: 450, price: 320, sell: 80, icon: 'potion', color: '#183c80', big: true, desc: 'Deep blue and fizzy. Restores 450 MP.' },
   // cures for status effects (delivery 5)
   antidote: { name: 'Antidote', kind: 'potion', rarity: 'common', cure: 'poison', price: 20, sell: 5, icon: 'potion', color: '#7cbf4f', desc: 'Bitter green drops. Cures poison.' },
   wake_herb: { name: 'Wake-up Herb', kind: 'potion', rarity: 'common', cure: 'stun', price: 18, sell: 4, icon: 'sprout', color: '#f2c14e', desc: 'Smells so strong it shakes off any dizziness.' },
@@ -416,7 +421,9 @@ const JOBS = {
       { id: 'cleave', name: 'Cleave', kind: 'cone', mp: 8, mpLv: 1, cd: 5, power: 1.5, powerLv: 0.25, range: 3.2, desc: 'A wide slash that hits every monster in front of you.' },
       { id: 'rush', name: 'Rush', kind: 'dash', mp: 10, mpLv: 1, cd: 8, power: 1.6, powerLv: 0.2, range: 8, stun: 1.5, stunLv: 0.2, desc: 'Charge at a monster up to 8 m away and leave it dizzy.' },
       { id: 'warcry', name: 'Shield Wall', kind: 'buff', mp: 12, mpLv: 1, cd: 22, dur: 10, def: 0.6, defLv: 0.1, guard: 0.3, guardLv: 0.04, taunt: 7, desc: 'Raise your shield for 10 s: defense goes way up, you take much less damage, and nearby monsters come at you instead of your pet.' },
-      { id: 'earthslam', name: 'Earth Slam', kind: 'area', element: 'earth', mp: 16, mpLv: 2, cd: 12, power: 1.8, powerLv: 0.3, radius: 3.6, desc: 'Slam the ground and hurt every monster around you. Earth element.' }
+      { id: 'earthslam', name: 'Earth Slam', kind: 'area', element: 'earth', mp: 16, mpLv: 2, cd: 12, power: 1.8, powerLv: 0.3, radius: 3.6, desc: 'Slam the ground and hurt every monster around you. Earth element.' },
+      { id: 'whirlblade', lv: 30, name: 'Whirlwind Blade', kind: 'area', element: 'wind', mp: 20, mpLv: 2, cd: 10, power: 2.4, powerLv: 0.35, radius: 4.2, kb: 1.6, desc: 'Spin like a top and slash every monster around you. Wind element.' },
+      { id: 'titan', lv: 40, name: 'Titan Breaker', kind: 'cone', element: 'earth', mp: 26, mpLv: 3, cd: 16, power: 3.6, powerLv: 0.5, range: 4.6, desc: 'One giant swing that cracks the ground in front of you. Earth element.' }
     ],
     ult: { name: "Hero's Comet", desc: 'Leap high and crash down on a wide area.' }
   },
@@ -426,7 +433,9 @@ const JOBS = {
       { id: 'powershot', name: 'Power Shot', kind: 'shot', mp: 8, mpLv: 1, cd: 5, power: 2.0, powerLv: 0.3, range: 12, kb: 1.2, desc: 'A strong long shot that pushes the monster back.' },
       { id: 'venom', name: 'Venom Arrow', kind: 'shot', mp: 9, mpLv: 1, cd: 8, power: 1.0, powerLv: 0.15, range: 10, poison: 6, poisonDps: 0.25, poisonLv: 0.06, desc: 'A poisoned arrow: the monster keeps losing HP for 6 seconds.' },
       { id: 'hawkeye', name: 'Hawk Eye', kind: 'buff', mp: 12, mpLv: 1, cd: 30, dur: 15, crit: 0.15, critLv: 0.03, range: 3, desc: 'More critical hits and longer range for 15 seconds.' },
-      { id: 'arrowrain', name: 'Arrow Rain', kind: 'rain', element: 'wind', mp: 16, mpLv: 2, cd: 12, power: 0.5, powerLv: 0.08, waves: 5, radius: 3.6, range: 11, desc: 'Arrows rain down around your target. Wind element.' }
+      { id: 'arrowrain', name: 'Arrow Rain', kind: 'rain', element: 'wind', mp: 16, mpLv: 2, cd: 12, power: 0.5, powerLv: 0.08, waves: 5, radius: 3.6, range: 11, desc: 'Arrows rain down around your target. Wind element.' },
+      { id: 'pierce', lv: 30, name: 'Piercing Arrow', kind: 'beam', mp: 18, mpLv: 2, cd: 9, power: 2.4, powerLv: 0.35, range: 14, width: 1.0, color: 0xfff0a0, desc: 'An arrow so fast it goes through every monster in its line.' },
+      { id: 'skyhunter', lv: 40, name: 'Sky Hunter', kind: 'rain', element: 'fire', mp: 26, mpLv: 3, cd: 16, power: 0.75, powerLv: 0.1, waves: 8, radius: 4.6, range: 12, desc: 'Burning arrows fall for a long time around your target. Fire element.' }
     ],
     ult: { name: 'Storm of Arrows', desc: 'Hundreds of arrows rain on a wide area around you.' }
   },
@@ -436,7 +445,9 @@ const JOBS = {
       { id: 'firebolt', name: 'Fire Bolt', kind: 'bolt', element: 'fire', mp: 8, mpLv: 1, cd: 3, power: 2.0, powerLv: 0.35, range: 10, desc: 'A ball of fire at one monster. Fire element.' },
       { id: 'frost', name: 'Frost Shard', kind: 'bolt', element: 'water', mp: 10, mpLv: 1, cd: 6, power: 1.6, powerLv: 0.25, range: 10, freeze: 0.3, freezeLv: 0.08, freezeT: 2.5, desc: 'A shard of ice that can freeze the monster in place. Water element.' },
       { id: 'stoneskin', name: 'Stone Skin', kind: 'buff', element: 'earth', mp: 12, mpLv: 1, cd: 30, dur: 15, def: 0.4, defLv: 0.08, desc: 'Your defense goes way up for 15 seconds. Earth element.' },
-      { id: 'gust', name: 'Gust', kind: 'area', element: 'wind', mp: 14, mpLv: 2, cd: 10, power: 1.4, powerLv: 0.25, radius: 4, kb: 2.5, desc: 'A whirlwind around you that blows monsters away. Wind element.' }
+      { id: 'gust', name: 'Gust', kind: 'area', element: 'wind', mp: 14, mpLv: 2, cd: 10, power: 1.4, powerLv: 0.25, radius: 4, kb: 2.5, desc: 'A whirlwind around you that blows monsters away. Wind element.' },
+      { id: 'blizzard', lv: 30, name: 'Blizzard', kind: 'rain', element: 'water', drop: 'shard', mp: 22, mpLv: 2, cd: 12, power: 0.7, powerLv: 0.1, waves: 6, radius: 4.2, range: 11, freeze: 0.12, freezeT: 2, desc: 'Ice falls around your target and can freeze monsters. Water element.' },
+      { id: 'meteor', lv: 40, name: 'Meteor', kind: 'area', element: 'fire', mp: 30, mpLv: 3, cd: 18, power: 3.4, powerLv: 0.5, radius: 5, kb: 1.4, desc: 'Call a burning rock down on top of you that hits everything around. Fire element.' }
     ],
     ult: { name: 'Starfall', desc: 'Stars fall all around you.' }
   },
@@ -446,7 +457,9 @@ const JOBS = {
       { id: 'homing', name: 'Homing Missile', kind: 'missile', element: 'fire', mp: 9, mpLv: 1, cd: 4, power: 2.0, powerLv: 0.3, range: 12, desc: 'A missile that chases its target. Fire element.' },
       { id: 'laser', name: 'Laser Beam', kind: 'beam', mp: 12, mpLv: 1, cd: 7, power: 1.8, powerLv: 0.3, range: 12, width: 1.4, desc: 'A straight beam that goes through every monster in its line.' },
       { id: 'overdrive', name: 'Overdrive', kind: 'buff', mp: 12, mpLv: 1, cd: 30, dur: 15, speed: 0.3, speedLv: 0.05, def: 0.2, defLv: 0.04, desc: 'Attack speed and defense go up for 15 seconds.' },
-      { id: 'barrage', name: 'Missile Barrage', kind: 'rain', element: 'fire', mp: 16, mpLv: 2, cd: 12, power: 0.55, powerLv: 0.09, waves: 5, radius: 3.6, range: 11, desc: 'Missiles rain down around your target. Fire element.' }
+      { id: 'barrage', name: 'Missile Barrage', kind: 'rain', element: 'fire', mp: 16, mpLv: 2, cd: 12, power: 0.55, powerLv: 0.09, waves: 5, radius: 3.6, range: 11, desc: 'Missiles rain down around your target. Fire element.' },
+      { id: 'rocketpunch', lv: 30, name: 'Rocket Punch', kind: 'dash', mp: 18, mpLv: 2, cd: 9, power: 2.6, powerLv: 0.35, range: 10, stun: 1.8, stunLv: 0.2, desc: 'Blast forward on rockets and punch a monster up to 10 m away. It gets dizzy.' },
+      { id: 'gigabeam', lv: 40, name: 'Giga Beam', kind: 'beam', mp: 28, mpLv: 3, cd: 16, power: 3.4, powerLv: 0.5, range: 15, width: 2.4, desc: 'A huge, wide beam that hits every monster in a long line.' }
     ],
     ult: { name: 'Mega Laser', desc: 'A giant beam that sweeps the area around you.' }
   }

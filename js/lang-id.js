@@ -279,7 +279,8 @@ function tr(s) {
 RW.trStory = tr;
 // dialogue lines
 const say0 = RW.UI.say;
-RW.UI.say = function (lines, acts) { if (isId() && Array.isArray(lines)) lines = lines.map((l) => (l && l.text ? Object.assign({}, l, { text: tr(l.text) }) : l)); return say0.call(this, lines, acts); };
+// keep every argument: the 3rd (opts.onDone) is what moves a quest on after a scene
+RW.UI.say = function (lines, acts, opts) { if (isId() && Array.isArray(lines)) lines = lines.map((l) => (l && l.text ? Object.assign({}, l, { text: tr(l.text) }) : l)); return say0.call(this, lines, acts, opts); };
 // quest titles and notes swap with the language
 const KEYS = ['title', 'desc', 'endLine', 'chapterTitle', 'chapterSub'];
 let cur = 'en';

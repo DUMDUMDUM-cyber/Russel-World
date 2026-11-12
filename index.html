@@ -48,6 +48,7 @@ body{margin:0;background:var(--sky);color:var(--ink);font-family:var(--font-ui);
 .dmg.el{font-size:24px}
 .dmg.el-fire{color:#ffb070}.dmg.el-water{color:#a8dcff}.dmg.el-earth{color:#e8c890}.dmg.el-wind{color:#c8fff0}
 .skrow{display:grid;grid-template-columns:44px 1fr auto 40px;align-items:center;gap:10px;padding:5px 0;border-bottom:1.5px dashed var(--parch-2)}
+.skrow.shut img{filter:grayscale(.8);opacity:.6}.skrow .sklock{color:#a8402a}.skrow .skkey{display:inline;opacity:.7}
 .skrow img{width:40px;height:40px;border-radius:10px;border:2px solid var(--ink);background:var(--parch-3)}
 .skrow .nm{font-size:14px;font-weight:700;line-height:1.2}
 .skrow .nm small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
@@ -162,6 +163,19 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .ult .star{width:28px;height:28px;position:relative}
 .ukey{position:absolute;right:-2px;bottom:-4px;font-size:10px;font-weight:700;background:var(--wood);color:var(--cream);border:1.5px solid var(--ink);border-radius:6px;padding:0 4px}
 .slots{display:grid;grid-template-columns:repeat(6,52px);gap:8px}
+.slot .ico{display:flex;align-items:center;justify-content:center;pointer-events:none}
+.slot.empty{background:rgba(251,241,220,.55);border-style:dashed}
+.slotpick{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(36,23,15,.35)}
+.slotpick[hidden]{display:none}
+.sp-in{background:var(--parch);border:3px solid var(--ink);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;align-items:center;max-width:calc(100vw - 32px)}
+.sp-t{font-weight:700;font-size:16px;text-align:center}
+.sp-row{display:grid;grid-template-columns:repeat(6,52px);gap:8px}
+.sp-row .slot{cursor:pointer}
+.sp-row .slot.cur{box-shadow:0 0 0 3px var(--gold)}
+.sp-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+@media (max-width:420px){.sp-row{grid-template-columns:repeat(3,52px)}}
+.skrow .nsvg{display:flex;align-items:center;justify-content:center}.skrow .nsvg svg{width:34px;height:34px}
+.btn.setk{height:26px;padding:0 10px;font-size:12px;margin-left:6px;vertical-align:middle}
 .slot{position:relative;width:52px;height:52px;border-radius:12px;background:var(--parch);border:2px solid var(--ink);padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden}
 .slot svg{width:28px;height:28px}
 .slot img{width:34px;height:34px}
@@ -321,6 +335,10 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 /* quest tracker, hints, markers, Olly's speech bubble */
 #tracker{left:calc(12px + env(safe-area-inset-left,0px));top:calc(18px + 100px*var(--s) + env(safe-area-inset-top,0px));width:250px;transform:scale(var(--s));transform-origin:top left;padding:5px;border-radius:14px;cursor:pointer}
 #tracker[hidden]{display:none}
+#tracker .trhead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;padding:0 2px 2px}
+#tracker .trfold{width:26px;height:22px;border-radius:7px;border:2px solid var(--ink);background:var(--parch);font-size:11px;line-height:1;padding:0;cursor:pointer;color:var(--ink)}
+#tracker.min{width:auto;min-width:150px}
+#tracker.min .trhead{padding:0 2px}
 .tr-in{padding:7px 10px 8px;display:flex;flex-direction:column;gap:7px;border-radius:9px}
 .tq{display:flex;flex-direction:column;gap:1px}
 .tq b{font-size:13px;font-weight:700;line-height:1.25}
@@ -704,25 +722,14 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
       <span class="ukey">R</span>
     </button>
     <div class="slots">
-      <button class="slot" data-slot="0" aria-label="1: Bash">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 26 L19 12" stroke="#3b2a1e" stroke-width="6" stroke-linecap="round"/><path d="M7 26 L19 12" stroke="#c08a5a" stroke-width="3" stroke-linecap="round"/><path d="M23 4 L24.5 8 L28.5 8.5 L25.5 11 L26.5 15 L23 12.8 L19.5 15 L20.5 11 L17.5 8.5 L21.5 8 Z" fill="#ffd84d" stroke="#3b2a1e" stroke-width="1.5" stroke-linejoin="round"/></svg>
-        <span class="key">1</span><span class="cd"></span><span class="cdt"></span>
-      </button>
-      <button class="slot" data-slot="1" aria-label="2: Pebble Toss">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 24 Q12 6 24 10" fill="none" stroke="#3b2a1e" stroke-width="1.8" stroke-dasharray="3 3" stroke-linecap="round"/><ellipse cx="24" cy="11" rx="5" ry="4" fill="#a8a39a" stroke="#3b2a1e" stroke-width="1.6"/><ellipse cx="22.5" cy="9.8" rx="1.6" ry="1" fill="#fff" opacity=".6"/></svg>
-        <span class="key">2</span><span class="cd"></span><span class="cdt"></span>
-      </button>
-      <button class="slot" data-slot="2" aria-label="3: Whirl">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 16 Q16 13 19 13 Q23 13 23 17 Q23 23 16 23 Q8 23 8 15 Q8 6 17 6 Q27 6 27 16" fill="none" stroke="#3f7fc4" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <span class="key">3</span><span class="cd"></span><span class="cdt"></span>
-      </button>
-      <button class="slot" data-slot="3" aria-label="4: Rally">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 L25 14 L19.5 14 L19.5 27 L12.5 27 L12.5 14 L7 14 Z" fill="#f4c542" stroke="#3b2a1e" stroke-width="1.6" stroke-linejoin="round"/></svg>
-        <span class="key">4</span><span class="cd"></span><span class="cdt"></span>
-      </button>
-      <button class="slot" data-slot="4" aria-label="5: Potion"><img alt=""><span class="key">5</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
-      <button class="slot" data-slot="5" aria-label="6: Potion"><img alt=""><span class="key">6</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
+      <button class="slot" data-slot="0" aria-label="1"><span class="ico"></span><span class="key">1</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
+      <button class="slot" data-slot="1" aria-label="2"><span class="ico"></span><span class="key">2</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
+      <button class="slot" data-slot="2" aria-label="3"><span class="ico"></span><span class="key">3</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
+      <button class="slot" data-slot="3" aria-label="4"><span class="ico"></span><span class="key">4</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
+      <button class="slot" data-slot="4" aria-label="5"><span class="ico"></span><span class="key">5</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
+      <button class="slot" data-slot="5" aria-label="6"><span class="ico"></span><span class="key">6</span><span class="count"></span><span class="cd"></span><span class="cdt"></span></button>
     </div>
+    <div id="slotPick" class="slotpick" hidden role="dialog" aria-label="Choose a button"><div class="sp-in"><div class="sp-t"></div><div class="sp-row"></div><div class="sp-acts"></div></div></div>
   </div>
 
   <div id="expText">EXP 0%</div>

@@ -305,7 +305,8 @@ const hasMats = (mats) => mats.every(([id, n]) => G.bagCount(id) >= n);
 function repairCost(inst) { const g = GEAR[inst.id]; return Math.ceil((MAXDUR - inst.dur) / MAXDUR * (10 + g.lv * 6) * (1 + inst.plus * 0.15)); }
 const ENH_CHANCE = [1, 1, 0.95, 0.9, 0.8, 0.7, 0.6, 0.45, 0.35, 0.25, 0.15]; // chance to reach +N
 // v1.5: making gear stronger takes Forge Crystals, and Rubies for the high steps
-function enhMats(to) { return to <= 3 ? [['forge_crystal', 2]] : to <= 6 ? [['forge_crystal', 4]] : to <= 9 ? [['forge_crystal', 5], ['ruby', 1]] : [['forge_crystal', 8], ['ruby', 3]]; }
+// user's choice: +1 to +10 costs 10 stones in all, one per step: a Forge Crystal for +1..+6, a Ruby for +7..+10
+function enhMats(to) { return to <= 6 ? [['forge_crystal', 1]] : [['ruby', 1]]; }
 const enhCoins = (inst) => Math.round((20 + GEAR[inst.id].lv * 10) * (inst.plus + 1));
 function allGear(P) { const a = []; for (const s of SLOTS) if (P.gear[s]) a.push([P.gear[s], true]); for (const g of P.gearBag) a.push([g, false]); return a; }
 function findInst(P, u) { for (const s of SLOTS) if (P.gear[s] && P.gear[s].u === u) return P.gear[s]; return P.gearBag.find((g) => g.u === u); }

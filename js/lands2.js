@@ -15,7 +15,7 @@ const R = () => RW.R();
 // ======================================================================= items
 const mat = (name, sell, color, icon, desc, extra) => Object.assign({ name, kind: 'material', rarity: 'common', sell, icon, color, desc }, extra || {});
 Object.assign(ITEMS, {
-  glow_goo: mat('Glow Goo', 70, '#8af07a', 'jelly', 'Green goo that shines in the dark.', { food: 20 }),
+  marsh_goo: mat('Marsh Goo', 70, '#8af07a', 'jelly', 'Green goo that shines in the dark.', { food: 20 }),
   bog_slime: mat('Bog Slime', 72, '#6a8a3a', 'jelly', 'Smelly marsh slime. Bolt says it makes good glue.'),
   gator_scale: mat('Gator Scale', 78, '#4a7a3a', 'cap', 'A tough green scale from a Mossgator.'),
   fen_feather: mat('Fen Feather', 80, '#8a6ac8', 'quill', 'A soft purple feather that smells of rain.'),
@@ -27,7 +27,7 @@ Object.assign(ITEMS, {
   marsh_pearl: mat('Marsh Pearl', 420, '#d8ffe0', 'gem', 'A pale green pearl from the deep bog.', { rarity: 'rare' }),
   morel_cap: mat('Morel Crown', 900, '#b88ae0', 'gem', 'The glowing cap-crown of Mother Morel.', { rarity: 'epic' }),
   cloud_puff: mat('Cloud Puff', 100, '#f4f8ff', 'fluff', 'A handful of real cloud. Soft and cool.'),
-  sky_feather: mat('Sky Feather', 104, '#ffd84d', 'quill', 'A golden feather from a Skyowl.'),
+  gold_feather: mat('Golden Feather', 104, '#ffd84d', 'quill', 'A golden feather from a Skyowl.'),
   wind_plume: mat('Wind Plume', 108, '#7cc4ff', 'quill', 'It flutters even with no wind.'),
   storm_wing: mat('Storm Wing', 112, '#f2d36b', 'quill', 'A crackling bat wing.'),
   thunder_fluff: mat('Thunder Fluff', 116, '#ffe070', 'fluff', 'Fluffy fur that makes your hair stand up.'),
@@ -67,7 +67,7 @@ const st = (lv, k) => { const n = lv - 30; k = k || 1; return { baseLv: lv, hp: 
 const M = (o) => mon(Object.assign(st(o.lv, o.k), o));
 Object.assign(KINDS, {
   // Glow Marsh (Lv. 30–33)
-  glowjelly: M({ name: 'Glowjelly', lv: 30, move: 'float', fly: 0.5, die: 'melt', area: 'glowmarsh', element: 'earth', weak: 'fire', poison: 0.3, helpers: 0.3, about: 'A green jelly that glows in the marsh. Its touch makes you sick.', drops: [['glow_goo', 0.55], ['antidote', 0.08], ['marsh_pearl', 0.012], ['lucky_clover', 0.012]] }),
+  glowjelly: M({ name: 'Glowjelly', lv: 30, move: 'float', fly: 0.5, die: 'melt', area: 'glowmarsh', element: 'earth', weak: 'fire', poison: 0.3, helpers: 0.3, about: 'A green jelly that glows in the marsh. Its touch makes you sick.', drops: [['marsh_goo', 0.55], ['antidote', 0.08], ['marsh_pearl', 0.012], ['lucky_clover', 0.012]] }),
   bogfrog: M({ name: 'Bogfrog', lv: 31, die: 'melt', area: 'glowmarsh', element: 'water', weak: 'earth', reach: 3.8, about: 'A big swamp frog that spits mud from far away. Run up close!', drops: [['bog_slime', 0.55], ['red_m', 0.08], ['marsh_pearl', 0.012], ['lucky_clover', 0.012]] }),
   mossgator: M({ name: 'Mossgator', lv: 32, k: 1.15, move: 'trot', area: 'glowmarsh', element: 'earth', weak: 'wind', aggro: 5.5, charge: 1.8, about: 'A little alligator covered in moss. It snaps, then charges!', drops: [['gator_scale', 0.5], ['red_m', 0.08], ['marsh_pearl', 0.015], ['lucky_clover', 0.012]] }),
   // Fenwood (Lv. 32–35)
@@ -81,7 +81,7 @@ Object.assign(KINDS, {
   mother_morel: mon({ name: 'Mother Morel', baseLv: 38, hp: 36000, dmg: [86, 104], def: 34, exp: 40000, coins: [2200, 2800], radius: 2.0, scale: 2.8, speed: 0.5, chase: 1.4, atkGap: 2.3, headY: 2.2, move: 'waddle', area: 'shroomcave', element: 'earth', weak: 'fire', reach: 3.6, boss: true, respawn: 1e9, poison: 0.35, about: 'The huge, sleepy mother of all marsh mushrooms. Her spores make the whole marsh drowsy. Stay out of the purple clouds!', drops: [['morel_cap', 1], ['light_shard', 2], ['marsh_pearl', 0.8], ['red_m', 1], ['lucky_clover', 0.5]] }),
   // Cloud Isle (Lv. 38–41)
   puffcloud: M({ name: 'Puffcloud', lv: 38, move: 'float', fly: 0.7, die: 'pop', area: 'cloudisle', element: 'wind', weak: 'earth', helpers: 0.3, about: 'A grumpy little cloud. It rains on you. On purpose.', drops: [['cloud_puff', 0.55], ['blue_m', 0.09], ['sky_gem', 0.012], ['lucky_clover', 0.014]] }),
-  skyowl: M({ name: 'Skyowl', lv: 39, move: 'float', fly: 1.2, die: 'pop', headY: 0.2, area: 'cloudisle', element: 'wind', weak: 'earth', stun: 0.35, aggro: 5, about: 'A golden owl of the sky. Its hoot shakes the clouds.', drops: [['sky_feather', 0.5], ['red_m', 0.09], ['sky_gem', 0.012], ['lucky_clover', 0.014]] }),
+  skyowl: M({ name: 'Skyowl', lv: 39, move: 'float', fly: 1.2, die: 'pop', headY: 0.2, area: 'cloudisle', element: 'wind', weak: 'earth', stun: 0.35, aggro: 5, about: 'A golden owl of the sky. Its hoot shakes the clouds.', drops: [['gold_feather', 0.5], ['red_m', 0.09], ['sky_gem', 0.012], ['lucky_clover', 0.014]] }),
   windbird: M({ name: 'Windbird', lv: 40, move: 'float', fly: 1.5, die: 'pop', headY: 0.3, area: 'cloudisle', element: 'wind', weak: 'earth', aggro: 5.5, charge: 1.5, about: 'A blue bird that dives out of the wind.', drops: [['wind_plume', 0.5], ['blue_m', 0.09], ['sky_gem', 0.015], ['lucky_clover', 0.014]] }),
   // Windspire (Lv. 40–43)
   stormbat: M({ name: 'Stormbat', lv: 41, move: 'float', fly: 1.4, die: 'pop', headY: 0.1, area: 'windspire', element: 'wind', weak: 'earth', stun: 0.3, helpers: 0.4, about: 'A yellow bat full of static. Its bite zaps!', drops: [['storm_wing', 0.5], ['red_m', 0.09], ['sky_gem', 0.015], ['lucky_clover', 0.014]] }),
@@ -112,8 +112,8 @@ RW.EXTRA_SET_PIECES.push(
   ['sky', 44, null, [['skycrown', 'Sky Crown'], ['skyrobe', 'Sky Robe'], ['windboots', 'Wind Boots']]]
 );
 Object.assign(RW.EXTRA_FORGE, {
-  lilyhat: [['glow_goo', 14], ['fen_feather', 8]], marshcoat: [['gator_scale', 14], ['mud_shell', 10], ['marsh_pearl', 1]], bogboots: [['bog_slime', 12], ['toad_wart', 8]],
-  skycrown: [['sky_feather', 14], ['wind_plume', 10]], skyrobe: [['cloud_puff', 16], ['thunder_fluff', 10], ['sky_gem', 1]], windboots: [['hawk_talon', 10], ['moon_feather', 10]]
+  lilyhat: [['marsh_goo', 14], ['fen_feather', 8]], marshcoat: [['gator_scale', 14], ['mud_shell', 10], ['marsh_pearl', 1]], bogboots: [['bog_slime', 12], ['toad_wart', 8]],
+  skycrown: [['gold_feather', 14], ['wind_plume', 10]], skyrobe: [['cloud_puff', 16], ['thunder_fluff', 10], ['sky_gem', 1]], windboots: [['hawk_talon', 10], ['moon_feather', 10]]
 });
 Object.assign(RW.GEAR_LOOKS, {
   gatorhelm: { kind: 'boar', base: 0x4a7a3a }, gatorvest: { shirt: '#e8f0d8', vest: '#4a7a3a', emblem: 'tusk', extra: 'shell' }, gatorboots: { boot: '#4a7a3a', cuff: 0xc8d890 },

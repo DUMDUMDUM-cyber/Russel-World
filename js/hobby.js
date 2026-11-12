@@ -184,7 +184,7 @@ function bench() {
   box(T('Crafting Bench', 'Meja Racik'), h, (b) => b.querySelectorAll('[data-c]').forEach((x) => x.addEventListener('click', () => craft(+x.dataset.c))));
 }
 Object.assign(ITEMS.fish_stew, { price: 60 }); Object.assign(ITEMS.tropic_mix, { price: 70 }); Object.assign(ITEMS.frost_pie, { price: 100 });
-const SHOPS = { kiki: ['red_m', 'blue_m', 'antidote', 'pet_kibble', 'tropic_mix', 'tide_egg'], freya: ['warm_tea', 'red_m', 'blue_m', 'frost_pie', 'frost_egg'] };
+const SHOPS = { kiki: ['red_m', 'red_l', 'blue_m', 'blue_l', 'antidote', 'pet_kibble', 'tropic_mix', 'tide_egg'], freya: ['warm_tea', 'red_m', 'red_l', 'blue_m', 'blue_l', 'frost_pie', 'frost_egg'] };
 function shopTalk(n) {
   if (pending(n.id)) return false;
   const L1 = (en, id) => ({ who: n.id, name: n.name, role: n.role, face: 'happy', text: T(en, id) });
