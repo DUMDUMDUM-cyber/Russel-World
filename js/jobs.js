@@ -217,13 +217,16 @@ function renderSkills() {
   const box = $('skillRows'); if (!box) return;
   const p = G.p; if (!p) { box.innerHTML = ''; return; }
   const job = p.job || 'novice', J = JOBS[job];
-  if (!J) { box.innerHTML = '<p class="note"><b>Skills:</b> at Lv. 10 you can choose a job from one of four masters: Marla (Warrior) in Mossbrook, Bolt (Robot) at his forge, Ranger Ivy (Archer) in Breezy Hills and Zara Emberly (Mage) in Whisperwood. Each job has 4 skills that you learn with skill points.</p>'; return; }
+  const U = J ? J.ult : RW.ULT, uv = Math.floor(G.player.ult || 0);
+  const ultRow = '<div class="skrow ultrow"><span class="ulticon">★</span><div class="nm">' + esc(U.name) + ' <small>(' + RW.T('Finishing move, key R', 'Jurus pamungkas, tombol R') + ')</small><small>' + esc(U.desc) + '</small><small>' + RW.T('Charges slowly as you hit monsters and get hit. Use it when the ring is full.', 'Terisi pelan saat kamu memukul monster dan saat terkena pukulan. Pakai saat lingkaran penuh.') + '</small><div class="ultbar"><i style="width:' + uv + '%"></i></div></div><span class="lvd">' + uv + '%</span></div>';
+  if (!J) { box.innerHTML = ultRow + '<p class="note"><b>Skills:</b> at Lv. 10 you can choose a job from one of four masters: Marla (Warrior) in Mossbrook, Bolt (Robot) at his forge, Ranger Ivy (Archer) in Breezy Hills and Zara Emberly (Mage) in Whisperwood. Each job has 4 skills that you learn with skill points.</p>'; return; }
   let html = '<div class="ptsline"><span>' + esc(J.name) + ' skill points</span><b>' + (p.sp || 0) + '</b></div>';
   for (const s of J.skills) {
     const lv = p.skills[s.id] || 0, dots = Array.from({ length: SKILL_MAX }, (_, k) => '<span class="' + (k < lv ? '' : 'off') + '">●</span>').join('');
     const mp = s.mp + (s.mpLv || 0) * Math.max(0, lv - 1);
     html += '<div class="skrow"><img src="' + skillIcon(s.id) + '" alt=""><div class="nm">' + esc(s.name) + '<small>' + esc(s.desc) + ' · ' + mp + ' MP · ' + s.cd + ' s</small></div><span class="lvd">' + dots + '</span><button class="plus" data-sk="' + s.id + '" aria-label="' + (lv ? 'Strengthen ' : 'Learn ') + esc(s.name) + '"' + ((p.sp || 0) > 0 && lv < SKILL_MAX ? '' : ' disabled') + '>+</button></div>';
   }
+  html += ultRow;
   html += '<p class="note">Weapon: ' + esc(WEAPONS[p.weapon] ? WEAPONS[p.weapon].name : '') + ' · Finishing move: ' + esc(J.ult.name) + '. You get 1 skill point every level.</p>';
   box.innerHTML = html;
   box.querySelectorAll('[data-sk]').forEach((b) => b.addEventListener('click', () => { if (G.learnSkill(b.dataset.sk)) { UI.renderStats(); renderSlots(); } }));

@@ -63,7 +63,7 @@ function save() {
   if (P && mode === 'play' && !traveling) {
     P.map = player.dead ? 'meadow' : W.active;
     P.pos = player.dead ? null : { x: +player.pos.x.toFixed(2), z: +player.pos.z.toFixed(2) };
-    P.face = +player.face.toFixed(3); P.hp = Math.max(1, Math.round(player.hp)); P.mp = Math.round(player.mp); P.ult = Math.floor(player.ult);
+    P.face = +player.face.toFixed(3); P.hp = Math.max(1, Math.round(player.hp)); P.mp = Math.round(player.mp); P.ult = +player.ult.toFixed(1);
     P.petSaved = Date.now();
   }
   writeStore();
@@ -328,7 +328,7 @@ function hitMonster(m, mult, kbDist, heavy, melee, o) {
     // Thornhogs prick you back when you hit them up close with a plain attack (never enough to knock you out)
     if (melee && m.k.thorns) setTimeout(() => thornPrick(m), 120);
     if (!o.pet && !m.k.target) emit('hit', m);
-    if (!o.pet) { player.ult = Math.min(100, player.ult + 9); hitStop = Math.max(hitStop, r.crit || heavy ? 0.09 : 0.06); }
+    if (!o.pet) { player.ult = Math.min(100, player.ult + 0.7); hitStop = Math.max(hitStop, r.crit || heavy ? 0.09 : 0.06); }
   }
   if (!m.aggro && !m.k.passive && !m.practice) {
     m.aggro = true; m.atkCd = 0.9;
@@ -359,15 +359,16 @@ function killMonster(m) {
 }
 function rollDrops(m) {
   if (m.k.target) return;
-  const cm = RW.pets ? RW.pets.coinMult() : 1;
-  dropItem('coin', Math.round((rnd(m.st.coins[0], m.st.coins[1] + 0.99) - 0.49) * cm), m.pos, 0.9);
+  // v1.5: monsters drop items only, never coins (coins come from selling, quests and chests)
   if (RW.pets) RW.pets.drops(m);
   if (RW.gear) RW.gear.drops(m);
-  if (m.golden) { for (const [id, chance] of GOLDEN.drops) if (Math.random() < chance) dropItem(id, 1, m.pos, 1.4); dropItem('coin', Math.round(m.st.coins[1] * 0.6), m.pos, 1.6); }
+  if (RW.gemsRoll) RW.gemsRoll(m);
+  if (m.golden) { for (const [id, chance] of GOLDEN.drops) if (Math.random() < chance) dropItem(id, 1, m.pos, 1.4); }
   let n = 0;
+  const cm = RW.pets ? RW.pets.coinMult() : 1; // lucky pets now give more item drops instead of coins
   for (const [id, chance] of m.k.drops) {
     const luck = ITEMS[id].rarity === 'common' ? 1 : D.luck;
-    if (Math.random() < chance * luck) { dropItem(id, 1, m.pos, 1.2); if (++n >= 2) break; }
+    if (Math.random() < chance * luck * cm) { dropItem(id, 1, m.pos, 1.2); if (++n >= 2) break; }
   }
 }
 function gainExp(n) {
@@ -392,7 +393,7 @@ function hurtPlayer(dmg, big) {
   const head = V3(player.pos.x, player.pos.y + 1.75, player.pos.z);
   if (!big && Math.random() < D.dodge) { floatText('Dodge', 'miss', head); return; }
   dmg = Math.max(1, Math.round(dmg * (1 - Math.min(0.75, buffSum('guard'))) - D.def * (1 + buffSum('def')) * 0.5)); // v1.4: guard = less damage taken (Shield Wall, tank pets)
-  player.hp -= dmg; player.lastHurt = time; player.lastFight = time; player.ult = Math.min(100, player.ult + 4);
+  player.hp -= dmg; player.lastHurt = time; player.lastFight = time; player.ult = Math.min(100, player.ult + 0.3);
   if (player.sitting) standUp();
   floatText(big ? '<small>CHARGE!</small>-' + dmg : '-' + dmg, big ? 'hurt bighurt' : 'hurt', head); sfx.hurt();
   if (player.hp <= 0) { player.hp = 0; faint(); }

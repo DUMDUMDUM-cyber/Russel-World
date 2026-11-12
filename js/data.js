@@ -366,7 +366,7 @@ const PETS = {
       { id: 'cloudnap', name: 'Cloud Nap', kind: 'heal', heal: 0.4, cd: 22, desc: 'A cozy cloud heals you when your HP is low, and the pet too.' }] },
   glimmerbun: { name: 'Glimmerbun', about: 'A bunny with a crystal horn that sparkles when it is happy.', element: null, hp: 1, atk: 1, egg: 'sky',
     skills: [{ id: 'sparkle', name: 'Sparkle Horn', kind: 'hit', power: 1.1, stun: 1.6, cd: 10, desc: 'A flash from its horn leaves a monster dizzy.' },
-      { id: 'luckyglim', name: 'Lucky Glimmer', kind: 'luck', dur: 20, cd: 45, desc: 'Monsters drop more coins for 20 seconds.' }] },
+      { id: 'luckyglim', name: 'Lucky Glimmer', kind: 'luck', dur: 20, cd: 45, desc: 'Monsters drop more items for 20 seconds.' }] },
   mossback: { name: 'Mossback', about: 'A stone turtle with a mossy, flowery shell.', element: 'earth', hp: 1.3, atk: 0.85, egg: 'leaf',
     skills: [{ id: 'shellguard', name: 'Shell Guard', kind: 'guard', def: 0.4, dur: 8, cd: 18, desc: 'Your defense goes up for 8 seconds.' },
       { id: 'mossmend', name: 'Moss Mend', kind: 'heal', heal: 0.4, cd: 22, desc: 'Healing moss mends you when your HP is low, and the pet too.' }] },

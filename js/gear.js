@@ -304,7 +304,8 @@ const matsHTML = (mats) => mats.map(([id, n]) => { const have = G.bagCount(id); 
 const hasMats = (mats) => mats.every(([id, n]) => G.bagCount(id) >= n);
 function repairCost(inst) { const g = GEAR[inst.id]; return Math.ceil((MAXDUR - inst.dur) / MAXDUR * (10 + g.lv * 6) * (1 + inst.plus * 0.15)); }
 const ENH_CHANCE = [1, 1, 0.95, 0.9, 0.8, 0.7, 0.6, 0.45, 0.35, 0.25, 0.15]; // chance to reach +N
-function enhMats(to) { return to <= 3 ? [['leaf_jelly', 3]] : to <= 6 ? [['boar_bristle', 3]] : to <= 9 ? [['thorn_quill', 3], ['golden_leaf', 1]] : [['forest_amber', 1], ['little_tusk', 1]]; }
+// v1.5: making gear stronger takes Forge Crystals, and Rubies for the high steps
+function enhMats(to) { return to <= 3 ? [['forge_crystal', 2]] : to <= 6 ? [['forge_crystal', 4]] : to <= 9 ? [['forge_crystal', 5], ['ruby', 1]] : [['forge_crystal', 8], ['ruby', 3]]; }
 const enhCoins = (inst) => Math.round((20 + GEAR[inst.id].lv * 10) * (inst.plus + 1));
 function allGear(P) { const a = []; for (const s of SLOTS) if (P.gear[s]) a.push([P.gear[s], true]); for (const g of P.gearBag) a.push([g, false]); return a; }
 function findInst(P, u) { for (const s of SLOTS) if (P.gear[s] && P.gear[s].u === u) return P.gear[s]; return P.gearBag.find((g) => g.u === u); }
@@ -489,18 +490,21 @@ function detailHTML(inst, worn) {
   h += '<div class="gstats">' + Object.keys(g.base).map((k) => '<span>' + statTxt(k, st[k] - inst.bon.filter((b) => b[0] === k).reduce((a, b) => a + b[1], 0)) + '</span>').join('') + inst.bon.map(([k, v]) => '<span class="bon">' + statTxt(k, v) + '</span>').join('') + '</div>';
   if (g.set) { const S = SETS[g.set]; h += '<div class="ival">Set ' + esc(S.name) + ': 2 pieces ' + Object.entries(S.two).map(([k, v]) => statTxt(k, v)).join(', ') + ' · 3 pieces ' + Object.entries(S.three).map(([k, v]) => statTxt(k, v)).join(', ') + '</div>'; }
   h += '<div class="ival">' + durBar(inst) + '</div>';
-  if (!worn) h += compareHTML(inst);
+  if (!worn && G.p.gear[g.slot]) h += '<div class="gcmp-n">' + RW.T('Now wearing: ', 'Sedang dipakai: ') + esc(instName(G.p.gear[g.slot])) + ' · ' + RW.T('see ▲▼ in Stats', 'lihat ▲▼ di Stats') + '</div>';
   if (worn) h +='<div class="irow"><button class="btn small soft" data-unequip="' + g.slot + '">Take off</button></div>';
   else h += (why ? '<p class="note bad">' + esc(why) + '</p>' : '') + '<div class="irow"><button class="btn small" data-equip="' + inst.u + '"' + (why ? ' disabled' : '') + '>Wear</button></div>';
   return h;
 }
 // each stat as: basic value (without gear) + what the worn gear adds in green; used here and in the Stats & Skills window
-function statRows(more) {
+function statRows(more, pick) {
   const P = G.p, D = G.D;
+  // v1.5: with a spare piece picked, each total shows how it would change if you wore it
+  const N = pick ? RW.derive(Object.assign({}, P, { gear: Object.assign({}, P.gear, { [GEAR[pick.id].slot]: pick }) }), G.jobNow(), G.weaponNow()) : null;
+  const cmp = (k, f) => { const d = N[k] - D[k], s = f(Math.abs(d)); return Math.abs(d) < 1e-6 || /^0(\.0+)?%?$/.test(s) ? ' <i class="gcd eq">=</i>' : ' <i class="gcd ' + (d > 0 ? 'up' : 'dn') + '">' + (d > 0 ? '▲' : '▼') + s + '</i>'; };
   const B = RW.derive(Object.assign({}, P, { gear: null }), G.jobNow(), G.weaponNow());
   const pct = (v) => (v * 100).toFixed(1) + '%', num = (v) => String(Math.round(v)), x2 = (v) => v.toFixed(2);
   const row = (name, k, f, pre) => { const g = D[k] - B[k], gs = f(Math.abs(g)), on = Math.abs(g) > 1e-6 && !/^0(\.0+)?%?$/.test(gs);
-    return '<div class="drow"><span>' + name + '</span><span>' + (pre || '') + f(B[k]) + (on ? ' <b class="gplus' + (g < 0 ? ' neg' : '') + '">' + (g > 0 ? '+' : '−') + gs + '</b>' : '') + '</span></div>'; };
+    return '<div class="drow"><span>' + name + '</span><span>' + (pre || '') + f(B[k]) + (on ? ' <b class="gplus' + (g < 0 ? ' neg' : '') + '">' + (g > 0 ? '+' : '−') + gs + '</b>' : '') + (N ? cmp(k, f) : '') + '</span></div>'; };
   const out = [row('Attack', 'atk', num), D.job === 'mage' ? row('Magic', 'matk', num) : '', row('Defense', 'def', num), row('Max HP', 'maxHp', num), row('Max MP', 'maxMp', num), row('Critical', 'crit', pct), row('Dodge', 'dodge', pct), row('Attack speed', 'speed', x2, '×')];
   if (more) { out.push(row('Rare drops', 'luck', x2, '×')); if (D.range) out.push('<div class="drow"><span>Range</span><span>' + D.range + ' m</span></div>'); }
   return out.join('');
@@ -515,7 +519,7 @@ function render() {
   const sc = setCounts(P), allSets = {};
   for (const s of ['head', 'body', 'feet']) if (P.gear[s] && GEAR[P.gear[s].id].set) allSets[GEAR[P.gear[s].id].set] = true;
   const pct = (v) => (v * 100).toFixed(1) + '%';
-  $('gearStats').innerHTML = '<h3>Stats <small class="gnote">basic <b class="gplus">+gear</b></small></h3>' + statRows(false);
+  $('gearStats').innerHTML = '<h3>Stats <small class="gnote">basic <b class="gplus">+gear</b></small></h3>' + statRows(false, typeof gearSel === 'number' ? P.gearBag.find((g) => g.u === gearSel) : null) + (typeof gearSel === 'number' ? '<p class="gnote">▲▼ = ' + RW.T('change if you wear the picked item', 'perubahan kalau item pilihan dipakai') + '</p>' : '');
   $('gearSets').innerHTML = '<h3>Set bonus</h3>' + (Object.keys(allSets).length ? Object.keys(allSets).map((id) => { const S = SETS[id], n = sc[id] || 0; return '<div class="setline"><b>Set ' + esc(S.name) + ' ' + n + '/3</b><span class="' + (n >= 2 ? 'on' : '') + '">' + (n >= 2 ? '✓' : '·') + ' 2: ' + Object.entries(S.two).map(([k, v]) => statTxt(k, v)).join(', ') + '</span><span class="' + (n >= 3 ? 'on' : '') + '">' + (n >= 3 ? '✓' : '·') + ' 3: ' + Object.entries(S.three).map(([k, v]) => statTxt(k, v)).join(', ') + '</span></div>'; }).join('') : '<p class="note">Wear 2 or 3 pieces of the same set for extra stats.</p>') +
     (SLOTS.some((s) => P.gear[s] && P.gear[s].dur <= WARN) ? '<p class="note bad">Something is almost worn out. Bolt in Mossbrook can repair it.</p>' : '');
   // the gear bag

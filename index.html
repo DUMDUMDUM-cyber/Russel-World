@@ -53,6 +53,10 @@ body{margin:0;background:var(--sky);color:var(--ink);font-family:var(--font-ui);
 .skrow .nm small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
 .skrow .lvd{font-size:13px;font-weight:700;color:#c8901a;letter-spacing:1px;white-space:nowrap}
 .skrow .lvd .off{color:#d9cdb6}
+.gcd{font-style:normal;font-weight:700;font-size:12px;margin-left:4px}.gcd.up{color:#2f9a3a}.gcd.dn{color:#d0442e}.gcd.eq{color:#a89a80}
+.skrow.ultrow{grid-template-columns:44px 1fr auto;background:linear-gradient(90deg,#fff3c4,transparent);border-radius:10px;padding:6px 4px}
+.ulticon{width:40px;height:40px;border-radius:50%;border:2px solid var(--ink);background:radial-gradient(#ffe680,#f0a020);display:grid;place-items:center;font-size:22px;color:#fff;text-shadow:0 1px 0 #a05a00}
+.ultbar{height:8px;margin-top:4px;border-radius:4px;background:#e8dcc4;border:1.5px solid var(--ink);overflow:hidden}.ultbar i{display:block;height:100%;background:linear-gradient(90deg,#ffcf3a,#ff8a3a)}
 .tq.job b{color:#b0461e}
 .sitz{font-size:16px;font-weight:700;color:var(--cream);text-shadow:0 1px 0 var(--ink),1px 0 0 var(--ink),-1px 0 0 var(--ink),0 -1px 0 var(--ink)}
 
@@ -587,8 +591,20 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
 #gearPanel .einfo small{font-size:10px}
 #gearPanel .gmid{gap:8px}
 #gearPanel .gstatbox{padding:6px 8px;gap:1px}
-#gearStats{display:grid!important;grid-template-columns:1fr 1fr;column-gap:12px}
-#gearStats h3{grid-column:1/-1}
+/* v1.5 reframe: 3 columns — hero | stats | spare gear */
+#gearPanel{width:min(1180px,calc(100vw - 24px))}
+#gearPanel .gearbody{grid-template-columns:minmax(0,1.5fr) minmax(220px,.75fr) minmax(0,1fr)}
+#gearPanel .gmid{display:flex;flex-direction:column;gap:8px;min-width:0}
+#gearPanel .gdoll canvas{height:clamp(150px,38vh,260px)}
+#gearPanel .gtop{grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr)}
+#gearStats .drow{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:2px 0;border-bottom:1px dashed var(--parch-2)}
+#gearStats .drow:last-of-type{border-bottom:0}
+#gearStats .drow span{white-space:nowrap}
+#gearStats .gcd{margin-left:3px}
+#gearStats .gnote{font-size:11px;margin:4px 0 0}
+#gearSets{font-size:12px}
+#gearPanel .gbag{max-height:clamp(90px,24vh,190px)!important}
+@media (max-width:900px){#gearPanel .gearbody{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}#gearPanel .gright{grid-column:1/-1}}
 #gearPanel .drow{font-size:12px;padding:1px 0}
 #gearPanel .setline{font-size:11px}
 #gearPanel .gbag{grid-template-columns:repeat(auto-fill,minmax(40px,1fr));max-height:clamp(46px,16vh,140px);overflow:auto}
@@ -777,8 +793,8 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
             <div class="gdoll"><canvas id="gearDoll" width="600" height="720" aria-label="Your hero, turning around. Drag to turn."></canvas></div>
             <div class="gcol" id="gearRight"></div>
           </div>
-          <div class="gmid"><div class="gstatbox" id="gearStats"></div><div class="gstatbox" id="gearSets"></div></div>
         </div>
+        <div class="gmid"><div class="gstatbox" id="gearStats"></div><div class="gstatbox" id="gearSets"></div></div>
         <div class="gright"><div class="gbagwrap"><h3>Spare gear</h3><div class="gbag" id="gearBagGrid"></div></div><div class="gdetail" id="gearDetail"></div></div>
       </div>
     </div>
@@ -832,7 +848,7 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
         <label class="slide"><span>Effects volume</span><input type="range" id="sfxVol" min="0" max="100" step="1"><b id="sfxVolN">90</b></label>
         <h3 class="set-h">Language</h3>
         <div class="seg" id="langSeg" role="radiogroup" aria-label="Language"><button role="radio" data-lang="en">English</button><button role="radio" data-lang="id">Bahasa Indonesia</button></div>
-        <p class="set-note" id="langNote">Menus and buttons change language. Story talk stays in English for now.</p>
+        <p class="set-note" id="langNote">Menus, buttons and the story change language.</p>
         <h3 class="set-h">Your account</h3>
         <div class="cloud-box"><span class="cloud-dot" id="cloudDot"></span><span id="cloudTxt">Saved on this device only.</span></div>
         <button class="btn small" id="cloudNow" hidden>Save now</button>
@@ -899,7 +915,7 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
         <button class="btn big" id="tPlay">Play</button>
       </div>
     </div>
-    <div class="t-ver">v1.4 · Chapter 2 & 3</div>
+    <div class="t-ver">v1.5 · Chapter 4 & 5</div>
     <button class="wbtn t-sound" id="tSound" aria-label="Music on" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M4 9 L8 9 L13 5 L13 19 L8 15 L4 15 Z"/><path class="ico snd-on" d="M16.5 9 Q18.5 12 16.5 15 M19 6.5 Q22.5 12 19 17.5"/><path class="ico snd-off" d="M16 9 L22 15 M22 9 L16 15"/></svg></button>
   </section>
 
@@ -975,6 +991,7 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
 <script src="js/models.js"></script>
 <script src="js/world.js"></script>
 <script src="js/lands.js"></script>
+<script src="js/lands2.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/game.js"></script>
@@ -983,6 +1000,7 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
 <script src="js/jobs.js"></script>
 <script src="js/pets.js"></script>
 <script src="js/gear.js"></script>
+<script src="js/gems.js"></script>
 <script src="js/river.js"></script>
 <script src="js/cave.js"></script>
 <script src="js/comic.js"></script>
@@ -990,7 +1008,9 @@ body.pet-caring .panel{opacity:0!important;pointer-events:none}
 <script src="js/sky.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/adventure.js"></script>
+<script src="js/adventure2.js"></script>
 <script src="js/hobby.js"></script>
+<script src="js/lang-id.js"></script>
 
 </body>
 </html>

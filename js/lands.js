@@ -745,5 +745,8 @@ for (const [id, c] of [['seacave', SC], ['icecave', IC]]) {
   for (let i = 0; i < 3; i++) { const a = rooms[i + 1], b = rooms[i + 2], mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2, D = { i, x: mx, z: mz, r: 5.2, open: false }; D.on = () => !D.open; DOORS[id].push(D); BLOCKS[id].push(D); }
   void c;
 }
-RW.LANDS_DATA = { LANDS, DOORS, BLOCKS, CORAL, FROST, SC, IC, boatModel, palm, snowPine, sandTex, snowTex };
+RW.LANDS_DATA = { LANDS, DOORS, BLOCKS, CORAL, FROST, SC, IC, boatModel, palm, snowPine, sandTex, snowTex,
+  // v1.5: the builders, so lands2.js can make Chapter 4 and 5 the same way
+  land, ROOMS, HALLS, g2, LV, put, flushBakes, coral, iceRock, mon, sandTint, snowTint, SNOW,
+  mk: { bCrab, bJelly, bCoco, bStar, bPuffer, bMonkey, bBird, bFrog, bClam, bMagma, bLizard, bOwl, bPenguin, bBat, bYeti, headOf, crown, spikes, face } };
 })();

@@ -584,7 +584,7 @@ function render() {
     const face = md === 'happy' ? 'happy' : md === 'sad' ? 'sad' : md === 'rest' || md === 'sleep' ? 'sleep' : 'normal';
     h += '<div class="pet-top"><div class="pet-port"><img src="' + petShot(pet.sp, pet.stage, face) + '" alt=""></div><div class="pet-info">' +
       '<div class="pet-name">' + esc(pet.name) + '</div>' +
-      '<div class="pet-sub">' + (isAdult(pet) ? 'Adult ' : isTeen(pet) ? 'Teen ' : 'Baby ') + S.name + ' · Pet Lv. ' + pet.lv + ' · ' + PET_TRAITS[pet.trait].name + '</div>' + '<div class="pet-sub"><b>' + (RW.PET_ROLES ? RW.PET_ROLES[roleOf(pet)][1] + ' ' + RW.PET_ROLES[roleOf(pet)][0] : '') + '</b> · ' + ({ attacker: 'hits monsters', ranger: 'big damage from far away', tank: 'takes hits for you, you take less damage', healer: 'heals you', lucky: 'more coins' })[roleOf(pet)] + '</div>' +
+      '<div class="pet-sub">' + (isAdult(pet) ? 'Adult ' : isTeen(pet) ? 'Teen ' : 'Baby ') + S.name + ' · Pet Lv. ' + pet.lv + ' · ' + PET_TRAITS[pet.trait].name + '</div>' + '<div class="pet-sub"><b>' + (RW.PET_ROLES ? RW.PET_ROLES[roleOf(pet)][1] + ' ' + RW.PET_ROLES[roleOf(pet)][0] : '') + '</b> · ' + ({ attacker: 'hits monsters', ranger: 'big damage from far away', tank: 'takes hits for you, you take less damage', healer: 'heals you', lucky: 'more item drops' })[roleOf(pet)] + '</div>' +
       '<span class="pet-mood ' + md + '" id="petMood">' + MOOD_INFO[md][1] + ' ' + MOOD_INFO[md][0] + '</span>' +
       bar('hpn', 'HP', Math.max(0, pet.hp), st.maxHp, Math.round(Math.max(0, pet.hp)) + '/' + st.maxHp) +
       bar('expn', 'EXP', pet.lv >= 50 ? 1 : pet.exp, pet.lv >= 50 ? 1 : expNeed(pet.lv), pet.lv >= 50 ? 'MAX' : Math.floor(pet.exp / expNeed(pet.lv) * 100) + '%') +

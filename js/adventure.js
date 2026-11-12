@@ -19,8 +19,11 @@ const CH2 = ['coral', 'beach', 'reef', 'jungle', 'lagoon', 'volcano', 'seacave']
 const DOCKS = {
   river: { x: W.DOCK.x + 1.5, z: W.DOCK.z + 4, face: -Math.PI / 2, name: 'Riverside' },
   coral: { x: -1505, z: 10, face: -Math.PI / 2, name: 'Coralcove' },
-  frost: { x: -3005, z: 10, face: -Math.PI / 2, name: 'Frostpeak' }
+  frost: { x: -3005, z: 10, face: -Math.PI / 2, name: 'Frostpeak' },
+  // v1.5: the big harbour city, open after Chapter 3 (or at Lv. 28)
+  sun: { x: -1556, z: 612, face: -Math.PI / 2, name: 'Sunhaven', open: (p) => (RW.story.qs && RW.story.qs('mq41') && RW.story.qs('mq41').done) || p.lv >= 28 }
 };
+const DOCK_OF = { bahari: 'river', bahari2: 'coral', bahari3: 'frost', bahari4: 'sun' };
 const FARE = 40;
 function sail(to) {
   const p = P(); if (!p) return;
@@ -33,14 +36,15 @@ function sail(to) {
   setTimeout(() => G.travel(W.mapAt(d.x, d.z), d.x, d.z, d.face, 'boat'), 700);
 }
 function captain(n) {
-  const p = P(), here = n.id === 'bahari' ? 'river' : n.id === 'bahari2' ? 'coral' : 'frost';
+  const p = P(), here = DOCK_OF[n.id] || 'frost';
   const L1 = (text, face) => ({ who: n.id, name: n.name, role: n.role, face: face || 'happy', text });
   if (p.lv < 10) { UI.say([L1(T('Ahoy, little sailor! The sea out there is rough. Come back when you are Lv. 10, then I will take you to Coralcove.', 'Ahoy, pelaut kecil! Lautnya ganas. Kembali kalau sudah Lv. 10, nanti aku antar ke Coralcove.'))], [{ label: T('Okay!', 'Oke!'), run: bye }]); return true; }
   const acts = [];
   const frostOpen = !!p.story.ch2done || p.lv >= 22;
-  for (const to of ['river', 'coral', 'frost']) {
+  for (const to of Object.keys(DOCKS)) {
     if (to === here) continue;
     if (to === 'frost' && !frostOpen) continue;
+    if (DOCKS[to].open && !DOCKS[to].open(p)) continue;
     acts.push({ label: T('Sail to ', 'Berlayar ke ') + DOCKS[to].name + ' (' + FARE + ')', run: () => sail(to) });
   }
   acts.push({ label: T('Not now', 'Nanti saja'), soft: true, run: bye });
@@ -340,9 +344,9 @@ RW.on('levelup', (lv) => { const p = P(); if (!p) return; const l = PASSIVE[p.jo
 RW.lands = {
   isLand,
   drawPaper(g, Wd, Hd, p, H) {
-    const two = CH2.includes(W.active), ids = two ? CH2 : ['frost', 'snowfield', 'pines', 'glacier', 'peak', 'icecave'];
+    const grp = RW.lands.groups.find((x) => x.ids.includes(W.active)) || RW.lands.groups[0], two = grp.ids === CH2, ids = grp.ids;
     // the sea, or snowy hills
-    g.fillStyle = two ? 'rgba(90,170,200,.35)' : 'rgba(200,220,240,.45)'; g.fillRect(24, 24, Wd - 48, Hd - 48);
+    g.fillStyle = grp.bg; g.fillRect(24, 24, Wd - 48, Hd - 48);
     const xs = ids.map((id) => D0.LANDS[id].cx), zs = ids.map((id) => D0.LANDS[id].cz);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
     const k = Math.min((Wd - 260) / Math.max(1, x1 - x0), (Hd - 220) / Math.max(1, z1 - z0));
@@ -353,9 +357,9 @@ RW.lands = {
     const COL = { coral: ['#f0dcae', '#8a6a40'], beach: ['#f0dcae', '#8a6a40'], reef: ['#f4c8c0', '#8a5a50'], jungle: ['#6fb04a', '#2f5a22'], lagoon: ['#7ab86a', '#2f5a3a'], volcano: ['#8a6a5a', '#3a2a26'], seacave: ['#5a6a72', '#2a3a42'],
       frost: ['#f4f8fc', '#6a7a8a'], snowfield: ['#f4f8fc', '#6a7a8a'], pines: ['#c8dcd0', '#2f5a46'], glacier: ['#cfeeff', '#4a6a8a'], peak: ['#e0e8f0', '#5a6a7a'], icecave: ['#9ab8d8', '#2a3a52'] };
     for (const id of ids) {
-      const L = D0.LANDS[id], [x, y] = to(L.cx, L.cz), r = id === 'coral' || id === 'frost' ? 62 : 74;
+      const L = D0.LANDS[id], [x, y] = to(L.cx, L.cz), r = id === 'coral' || id === 'frost' ? 62 : 74, cc = COL[id] || (grp.col && grp.col[id]) || ['#cfe0c0', '#3a4a3a'];
       if (!H.seen(id)) { H.cloud(g, x, y, r, r * 0.75); continue; }
-      H.blob(g, x, y, r, r * 0.75, 3 + ids.indexOf(id) * 1.3, 0.08); g.fillStyle = COL[id][0]; g.fill(); g.strokeStyle = COL[id][1]; g.lineWidth = 3; g.stroke();
+      H.blob(g, x, y, r, r * 0.75, 3 + ids.indexOf(id) * 1.3, 0.08); g.fillStyle = cc[0]; g.fill(); g.strokeStyle = cc[1]; g.lineWidth = 3; g.stroke();
       for (let i = 0; i < 7; i++) { const a = rr() * 6.28, d = Math.sqrt(rr()) * 0.6, tx = x + Math.cos(a) * r * d, ty = y + Math.sin(a) * r * 0.75 * d; if (/jungle|lagoon|beach|coral/.test(id)) H.tree(g, tx, ty, 0.8, '#4f9a3a'); else if (/pines|snowfield|frost|glacier/.test(id)) H.pine(g, tx, ty, 0.9); }
       if (id === 'volcano') { g.fillStyle = '#5a3a2a'; g.beginPath(); g.moveTo(x - 30, y + 20); g.lineTo(x, y - 30); g.lineTo(x + 30, y + 20); g.closePath(); g.fill(); g.fillStyle = '#ff7a2a'; g.beginPath(); g.arc(x, y - 26, 7, 0, 6.28); g.fill(); }
       if (id === 'coral' || id === 'frost') { for (const [dx, dy, c] of [[-16, -6, '#ff7a8a'], [14, -10, '#7cc4ff'], [0, 14, '#ffb43d']]) { g.fillStyle = '#fff1d6'; g.fillRect(x + dx - 4, y + dy, 8, 9); g.fillStyle = id === 'frost' ? '#f4f8ff' : c; g.strokeStyle = '#3b2a1e'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(x + dx, y + dy, 11, 7, 0, Math.PI, 0); g.closePath(); g.fill(); g.stroke(); } }
@@ -367,8 +371,11 @@ RW.lands = {
     const L = D0.LANDS[W.active], [lx, ly] = to(L.cx, L.cz), sx = lx + (pl.pos.x - L.cx) / (L.A || 150) * 60, sy = ly - (pl.pos.z - L.cz) / (L.A || 150) * 45;
     void px; void py;
     H.star(g, sx, sy, '#ff6a4a', 12);
-    H.label(g, two ? T('The Sunny Sea', 'Laut Cerah') : T('The Frozen North', 'Utara Beku'), Wd / 2, 52, 24);
-  }
+    H.label(g, grp.title(), Wd / 2, 52, 24);
+    void two;
+  },
+  groups: [{ ids: CH2, bg: 'rgba(90,170,200,.35)', title: () => T('The Sunny Sea', 'Laut Cerah') },
+    { ids: ['frost', 'snowfield', 'pines', 'glacier', 'peak', 'icecave'], bg: 'rgba(200,220,240,.45)', title: () => T('The Frozen North', 'Utara Beku') }]
 };
 
 // ======================================================================= talking, events and the frame loop
@@ -405,5 +412,5 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-RW.adventure = { sail, resetDungeon, setDoor, DOORS, freezeHero, PASSIVE, puz };
+RW.adventure = { sail, resetDungeon, setDoor, DOORS, freezeHero, PASSIVE, puz, DOCKS, warn, clearRings, bossBrain, addTitle, Ln, NM, bowlModel, shellModel, fireOn };
 })();

@@ -12,7 +12,7 @@ const $ = (id) => document.getElementById(id);
 const ID = {
   'Settings': 'Pengaturan', 'Sound': 'Suara', 'Music': 'Musik', 'Sound effects': 'Efek suara', 'Music volume': 'Volume musik', 'Effects volume': 'Volume efek',
   'Language': 'Bahasa', 'Your account': 'Akun kamu', 'Save now': 'Simpan sekarang',
-  'Menus and buttons change language. Story talk stays in English for now.': 'Menu dan tombol ganti bahasa. Percakapan cerita masih bahasa Inggris untuk sekarang.',
+  'Menus, buttons and the story change language.': 'Menu, tombol dan cerita ganti bahasa.',
   'Open the game while signed in to Claude, on your phone or computer, and your heroes follow you.': 'Buka game sambil masuk ke akun Claude, di HP atau komputer, dan pahlawanmu ikut ke sana.',
   'Saved on this device only.': 'Tersimpan di perangkat ini saja.', 'Saved to your Claude account.': 'Tersimpan di akun Claude kamu.', 'Saving...': 'Menyimpan...', 'Checking your account...': 'Memeriksa akunmu...', 'Could not reach your account. Saved on this device.': 'Akun tidak terjangkau. Tersimpan di perangkat ini.',
   'Quest book': 'Buku misi', 'World map': 'Peta dunia', 'Waystone': 'Batu jalan', 'Monster book': 'Buku monster', 'My pet': 'Hewanku', 'Equipment': 'Perlengkapan', 'Spare gear': 'Perlengkapan cadangan',
